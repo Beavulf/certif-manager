@@ -1,0 +1,157 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───── ENUMS ─────
+
+enum CertStatus {
+  active
+  expired
+  revoked
+}
+
+enum CertType {
+  cer
+  p7b
+}
+
+enum FileType {
+  pdf
+  docx
+  doc
+}
+
+enum AuditAction {
+  uploadCert
+  deleteCert
+  viewCert
+  uploadDoc
+  deleteDoc
+  editEmployee
+  exportReport
+  login
+  sendNotification
+}
+
+// ───── MODELS ─────
+
+model Employee {
+  id           String        @id @default(uuid())
+  fullName     String
+  email        String        @unique
+  department   String? // отдел
+  position     String? // должность
+  adUsername   String?       @unique
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  certificates Certificate[]
+
+  @@index([fullName])
+}
+
+model User {
+  id         String   @id @default(uuid())
+  adUsername String   @unique
+  createdAt  DateTime @default(now())
+
+  auditLogs  AuditLog[]
+}
+
+model Certificate {
+  id            String        @id @default(uuid())
+  employeeId    String
+  serialNumber  String     @unique
+  thumbprint    String?    @unique // уникальный хэш сертификата
+  subjectCN     String
+  subjectEmail  String?
+  issuer        String? // кто выдал
+  validFrom     DateTime
+  validTo       DateTime
+  certType      CertType
+  fileKey       String     // ключ в MinIO
+  status        CertStatus @default(active)
+  notes         String?
+  uploadedBy    String     // adUsername
+  uploadedAt    DateTime   @default(now())
+
+  employee      Employee          @relation(fields: [employeeId], references: [id])
+  documents     Document[]
+  notifications NotificationLog[]
+
+  @@index([employeeId])
+  @@index([validTo])       // для cron-проверки истечения
+  @@index([status])
+}
+
+model Document {
+  id            String      @id @default(uuid())
+  certificateId String
+  fileName      String
+  fileKey       String   // ключ в MinIO
+  fileType      FileType
+  fileSizeBytes Int?
+  uploadedBy    String   // adUsername
+  uploadedAt    DateTime @default(now())
+
+  certificate   Certificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+
+  @@index([certificateId])
+}
+
+model NotificationLog {
+  id               String      @id @default(uuid())
+  certificateId    String
+  sentTo           String
+  sentAt           DateTime @default(now())
+  daysBeforeExpiry Int
+  status           String   @default("sent") // sent | failed
+  errorMessage     String?
+
+  certificate      Certificate @relation(fields: [certificateId], references: [id])
+
+  @@index([certificateId])
+}
+
+model NotificationSettings {
+  id               String      @id @default(uuid())
+  daysBeforeExpiry Int[]    @default([30, 14, 7])
+  smtpHost         String
+  smtpPort         Int      @default(25)
+  smtpUser         String?
+  smtpPassword     String?
+  senderEmail      String
+  senderName       String?
+  isEnabled        Boolean  @default(true)
+  updatedBy        String?
+  updatedAt        DateTime @updatedAt
+}
+
+model AuditLog {
+  id          String         @id @default(uuid())
+  userId      String?
+  adUsername  String?
+  displayName String?
+  action      AuditAction
+  entityType  String?     // "certificate" | "document" | "employee"
+  entityId    Int?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime    @default(now())
+
+  user        User? @relation(fields: [userId], references: [id])
+
+  @@index([adUsername])
+  @@index([createdAt])
+}

@@ -1,0 +1,134 @@
+import { employeeRepository } from "../repositories/employee-repository";
+import type { GetEmployeesOptions } from "@/types/employee-types";
+import type { Prisma, Employee, Certificate } from "@/generated/prisma/client";
+import { BadRequestError, NotFoundError } from "../errors/app-error";
+import type { EmployeeGetPayload } from "@/generated/prisma/models";
+
+export const employeeService = {
+
+  async getAllWithOptions(options?: GetEmployeesOptions):Promise<Employee[]> {
+    const { includeCertificates, certificateStatus } = options || {}
+
+    if (includeCertificates) {
+      const newOptions: GetEmployeesOptions = {
+        ...options,
+        include: {
+          certificates: {
+            where: {
+              status: certificateStatus,
+            },
+            orderBy: { validTo: 'asc' }
+          } 
+        }
+      }
+      return await employeeRepository.getAllWithOptions(newOptions);
+    }
+    return await employeeRepository.getAllWithOptions(options);
+  },
+
+  async create(data: Prisma.EmployeeCreateInput) {
+    const { adUsername, email, fullName } = data;
+    if (!email || !fullName || !adUsername) {
+      throw new BadRequestError("Отсутствуют обязательные поля")
+    }
+
+    const employee = await employeeRepository.findByAdUsername(adUsername);
+    if (employee) {
+      throw new BadRequestError("Сотрудник с таким логином уже существует");
+    }
+
+    return await employeeRepository.create(data);
+  },
+
+  async update(id: string, data: Prisma.EmployeeUpdateInput) {
+    const employee = await this.findByIdOrThrow(id);
+    const updatedEmployee = await employeeRepository.updateById(employee.id, data);
+    if (!updatedEmployee) {
+      throw new NotFoundError("Сотрудник при обновлении не найден");
+    }
+    return updatedEmployee;
+  },
+
+  async deleteById(id: string):Promise<Employee> {
+    const employee = await this.findByIdOrThrow(id);
+    const deletedEmployee = await employeeRepository.deleteById(employee.id);
+    if (!deletedEmployee) {
+      throw new NotFoundError("Сотрудник для удалении не найден");
+    }
+    return deletedEmployee;
+  },
+
+  async findByIdOrThrow(id: string, includeCert: boolean = false):Promise<EmployeeGetPayload<{include: {certificates: true}}> | Employee> {
+    const include: Prisma.EmployeeInclude = { certificates: true }
+    const employee = await employeeRepository.findById(id, includeCert ? include : undefined);
+    if (!employee) {
+      throw new NotFoundError("Сотрудник не найден");
+    }
+    return employee;
+  },
+
+  async findById(id: string, includeCert: boolean = false):Promise<Employee | null> {
+    const include: Prisma.EmployeeInclude = { certificates: true }
+    return await employeeRepository.findById(id, includeCert ? include : undefined);
+  },
+
+  async findByAdUsername(adUsername: string, includeCert: boolean = false):Promise<Employee> {
+    const include: Prisma.EmployeeInclude = { certificates: true }
+    const employee = await employeeRepository.findByAdUsername(adUsername, includeCert ? include : undefined);
+    if (!employee) {
+      throw new NotFoundError("Сотрудник не найден");
+    }
+    return employee;
+  },
+
+  async getEmployeeCertificates(id: string):Promise<Certificate[]> {
+    const employee = await this.findByIdOrThrow(id, true);
+    if ('certificates' in employee) {
+      return employee.certificates;
+    }
+    return [];
+  },
+
+  async assignCertificate(employeeId: string, certificateId: string):Promise<Employee> {
+    const employee = await this.findByIdOrThrow(employeeId, true);
+    const certificate = await certificateRepository.findById(certificateId);
+
+    if (!certificate) {
+      throw new NotFoundError("Сертификат не найден");
+    }
+    if ('certificates' in employee) {
+      if (employee.certificates.some(cert => cert.id === certificate.id)) {
+        throw new BadRequestError("Сертификат уже привязан к сотруднику");
+      }
+    }
+    
+    return await employeeRepository.updateById(employee.id, {
+      certificates: {
+        connect: {
+          id: certificate.id
+        }
+      }
+    });
+  },
+
+  async unassignCertificate(employeeId: string, certificateId: string) {
+    const employee = await this.findByIdOrThrow(employeeId, true);
+    const certificate = await certificateRepository.findById(certificateId);
+
+    if (!certificate) {
+      throw new NotFoundError("Сертификат не найден");
+    }
+    if (!('certificates' in employee)) {
+      throw new NotFoundError("Нет привязанных сертификатов к сотруднику");
+    }
+
+    return await employeeRepository.updateById(employee.id, {
+      certificates: {
+        disconnect: {
+          id: certificate.id
+        }
+      }
+    });
+  }
+
+}
