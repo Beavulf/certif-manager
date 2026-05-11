@@ -24,6 +24,10 @@ export function createDocumentRepository(db: DbClient = prisma) {
     deleteById(id: string): Promise<Document> {
       return db.document.delete({ where: { id } });
     },
+
+    getByCertificateId(certificateId: string):Promise<Document[]> {
+      return db.document.findMany({ where: { certificateId } });
+    }
   } as const;
 }
 

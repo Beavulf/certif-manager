@@ -6,4 +6,7 @@ export interface GetCertificateOptions {
   include?: Prisma.CertificateInclude;
   skip?: number;
   take?: number;
+  includeEmployee?: boolean;
+  includeNotificationLog?: boolean;
+  includeDocuments?: boolean;
 }

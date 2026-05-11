@@ -3,6 +3,7 @@ import type { GetEmployeesOptions } from "@/types/employee-types";
 import type { Prisma, Employee, Certificate } from "@/generated/prisma/client";
 import { BadRequestError, NotFoundError } from "../errors/app-error";
 import type { EmployeeGetPayload } from "@/generated/prisma/models";
+import { certificateService } from "./certificate-service";
 
 export const employeeService = {
 
@@ -91,11 +92,8 @@ export const employeeService = {
 
   async assignCertificate(employeeId: string, certificateId: string):Promise<Employee> {
     const employee = await this.findByIdOrThrow(employeeId, true);
-    const certificate = await certificateRepository.findById(certificateId);
+    const certificate = await certificateService.findByIdOrThrow(certificateId);
 
-    if (!certificate) {
-      throw new NotFoundError("Сертификат не найден");
-    }
     if ('certificates' in employee) {
       if (employee.certificates.some(cert => cert.id === certificate.id)) {
         throw new BadRequestError("Сертификат уже привязан к сотруднику");
@@ -113,11 +111,8 @@ export const employeeService = {
 
   async unassignCertificate(employeeId: string, certificateId: string) {
     const employee = await this.findByIdOrThrow(employeeId, true);
-    const certificate = await certificateRepository.findById(certificateId);
+    const certificate = await certificateService.findByIdOrThrow(certificateId);
 
-    if (!certificate) {
-      throw new NotFoundError("Сертификат не найден");
-    }
     if (!('certificates' in employee)) {
       throw new NotFoundError("Нет привязанных сертификатов к сотруднику");
     }

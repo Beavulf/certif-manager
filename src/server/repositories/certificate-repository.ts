@@ -1,14 +1,14 @@
 import prisma from "@/lib/prisma";
 import type { Prisma, PrismaClient, Certificate } from "@/generated/prisma/client";
 import type { GetCertificateOptions } from "@/types/certificate-types";
-import type { CertificateGetPayload } from "@/generated/prisma/models";
+import type { CertificateInclude } from "@/generated/prisma/models";
 
 export type DbClient = PrismaClient | Prisma.TransactionClient;
 
 export function createCertificateRepository(db: DbClient = prisma) {
   return {
 
-    getAllWithOptions(options?: GetCertificateOptions): Promise<Certificate[]> {
+    getAllWithOptions(options?: GetCertificateOptions): Promise<(Certificate & CertificateInclude)[]> {
       const { filter, orderBy, include, skip, take } = options || {};
       return db.certificate.findMany({
         where: filter,
@@ -29,6 +29,10 @@ export function createCertificateRepository(db: DbClient = prisma) {
 
     findByEmployeeId(employeeId: string): Promise<Certificate | null> {
       return db.certificate.findFirst({ where: { employeeId } });
+    },
+
+    getDocuments(id: string) {
+      return db.certificate.findUnique({ where: { id }, include: { documents: true } });
     },
 
     updateById(id: string, data: Prisma.CertificateUpdateInput): Promise<Certificate> {
