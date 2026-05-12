@@ -1,5 +1,5 @@
 import { employeeRepository } from "../repositories/employee-repository";
-import type { GetEmployeesOptions } from "@/types/employee-types";
+import type { EmployeesWithIncludes } from "@/types/employee-types";
 import type { Prisma, Employee, Certificate } from "@/generated/prisma/client";
 import { BadRequestError, NotFoundError } from "../errors/app-error";
 import type { EmployeeGetPayload } from "@/generated/prisma/models";
@@ -7,24 +7,11 @@ import { certificateService } from "./certificate-service";
 
 export const employeeService = {
 
-  async getAllWithOptions(options?: GetEmployeesOptions):Promise<Employee[]> {
-    const { includeCertificates, certificateStatus } = options || {}
-
-    if (includeCertificates) {
-      const newOptions: GetEmployeesOptions = {
-        ...options,
-        include: {
-          certificates: {
-            where: {
-              status: certificateStatus,
-            },
-            orderBy: { validTo: 'asc' }
-          } 
-        }
-      }
-      return await employeeRepository.getAllWithOptions(newOptions);
-    }
-    return await employeeRepository.getAllWithOptions(options);
+  async findMany(
+    args?: Prisma.EmployeeFindManyArgs
+  ):Promise<EmployeesWithIncludes[]> {
+    const certificates = await employeeRepository.findMany(args);
+    return certificates;
   },
 
   async create(data: Prisma.EmployeeCreateInput) {

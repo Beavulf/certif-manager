@@ -1,5 +1,28 @@
 'use client'
 export default function MyForm() {
+
+  const handleGetCertificates = async () => {
+    const id = "530df3ff-e1c1-4753-99d3-98a1bf6f8c89"
+    const res = await fetch(`/api/certificates/${id}`, {
+      method: "GET",
+    });
+    
+    const data = await res.json();
+    console.log(data);
+  }
+
+    const handleDownloadSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      const id = "13b8388e-8f4e-49cd-acbd-7ecc25790da8"
+      const res = await fetch(`/api/certificates/${id}`, {
+        method: "GET",
+      });
+      
+      const data = await res.json();
+      window.location.href = data      
+      console.log(data);
+    }
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
   
@@ -10,17 +33,74 @@ export default function MyForm() {
         method: "POST",
         body: formData,
       });
-  
+      
       const data = await res.json();
       console.log(data);
     };
   
     return (
-      <form onSubmit={handleSubmit} encType="multipart/form-data">
-        <input name="title" type="text" placeholder="Заголовок" />
-        <input name="description" type="text" placeholder="Описание" />
-        <input name="file" type="file" />
-        <button type="submit">Отправить</button>
-      </form>
+      // <form className="font-geist-mono" onSubmit={handleSubmit} encType="multipart/form-data">
+      //   <input name="fullName" type="text" placeholder="FULL NAME" />
+      //   <input name="email" type="email" placeholder="Email" />
+      //   <input name="adUsername" placeholder="AD NAME" />
+      //   {/* <input name="file" type="file" /> */}
+      //   <button type="submit" className="">Отправить</button>
+      // </form>
+      <div>
+        <form
+          name="load-certificate"
+          className="flex flex-col gap-4 p-6 bg-white rounded-lg shadow-md max-w-md mx-auto border border-gray-200"
+          onSubmit={handleSubmit}
+          encType="multipart/form-data"
+        >
+          <span className="text-xl font-semibold text-gray-900 mb-2 tracking-wide">
+            LOAD CERTIFICATE
+          </span>
+          <label className="flex flex-col gap-1 text-gray-700 font-medium">
+            Employee ID
+            <input
+              name="employeeId"
+              type="text"
+              placeholder="Enter Employee ID"
+              className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-200 transition"
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-gray-700 font-medium">
+            Certificate File
+            <input
+              name="file"
+              type="file"
+              className="block w-full text-sm text-gray-700
+              focus:outline-none
+              file:mr-4 file:py-2 file:px-4
+              file:rounded file:border-0
+              file:text-sm file:font-semibold
+              file:bg-amber-50 file:text-amber-800
+              hover:file:bg-amber-100"
+              required
+            />
+          </label>
+          <button
+            type="submit"
+            className="mt-4 bg-amber-400 text-white font-semibold py-2 rounded shadow hover:bg-amber-500 transition cursor-pointer"
+          >
+            Отправить
+          </button>
+        </form>
+ 
+        <br/>
+        <form name="download-certificate" className="font-geist-mono" onSubmit={handleDownloadSubmit} encType="multipart/form-data">
+          <span>DOWNLOAD | </span>
+          <button type="submit" className="bg-amber-200 border-2 cursor-pointer">DOWNLOAD</button>
+        </form>
+        <br />
+        <button
+            onClick={handleGetCertificates}
+            className="w-full mt-4 bg-amber-400 text-white font-semibold py-2 rounded shadow hover:bg-amber-500 transition cursor-pointer"
+          >
+            Получить
+          </button>
+      </div>
     );
   }

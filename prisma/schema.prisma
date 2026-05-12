@@ -145,7 +145,7 @@ model AuditLog {
   displayName String?
   action      AuditAction
   entityType  String?     // "certificate" | "document" | "employee"
-  entityId    Int?
+  entityId    String?
   ipAddress   String?
   userAgent   String?
   createdAt   DateTime    @default(now())

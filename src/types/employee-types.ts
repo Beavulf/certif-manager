@@ -1,4 +1,4 @@
-import type { Employee, Prisma } from "@/generated/prisma/client";
+import type { Certificate, Employee, Prisma } from "@/generated/prisma/client";
 
 export interface GetEmployeesOptions {
   filter?: Prisma.EmployeeWhereInput;
@@ -11,3 +11,7 @@ export interface GetEmployeesOptions {
 }
 
 export type EmployeePayloadWithCertificates = Prisma.EmployeeGetPayload<{ include: { certificates: true } }> | Employee | null
+
+export type EmployeesWithIncludes = Employee & {
+  certificates?: Certificate[]
+}

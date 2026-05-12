@@ -1,24 +1,44 @@
 import prisma from "@/lib/prisma";
 import type { Prisma, PrismaClient, AuditLog } from "@/generated/prisma/client";
+import { handlePrismaError } from "../errors/prisma-error-handler";
+import type { AuditLogFindManyArgs, AuditLogGetPayload } from "@/generated/prisma/models";
 
 export type DbClient = PrismaClient | Prisma.TransactionClient;
 
 export function createAuditLogRepository(db: DbClient = prisma) {
   return {
-    create(data: Prisma.AuditLogCreateInput): Promise<AuditLog> {
-      return db.auditLog.create({ data });
+    async create(data: Prisma.AuditLogCreateInput): Promise<AuditLog> {
+      try {
+        return await db.auditLog.create({ data });
+      } catch (error) {
+        handlePrismaError(error);
+      }
     },
 
-    findById(id: string): Promise<AuditLog | null> {
-      return db.auditLog.findUnique({ where: { id } });
+    async findMany<T extends AuditLogFindManyArgs>(
+      args?: Prisma.SelectSubset<T, AuditLogFindManyArgs>
+    ):Promise<AuditLogGetPayload<T>[]> {
+      try {
+        return await db.auditLog.findMany<T>(args);
+      } catch(error) {
+        handlePrismaError(error)
+      }
     },
 
-    updateById(id: string, data: Prisma.AuditLogUpdateInput): Promise<AuditLog> {
-      return db.auditLog.update({ where: { id }, data });
+    async findById(id: string): Promise<AuditLog | null> {
+      try {
+        return await db.auditLog.findUnique({ where: { id } });
+      } catch (error) {
+        handlePrismaError(error);
+      }
     },
 
-    deleteById(id: string): Promise<AuditLog> {
-      return db.auditLog.delete({ where: { id } });
+    async deleteById(id: string): Promise<AuditLog> {
+      try {
+        return await db.auditLog.delete({ where: { id } });
+      } catch (error) {
+        handlePrismaError(error);
+      }
     },
   } as const;
 }

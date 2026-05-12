@@ -1,21 +1,36 @@
-// app/api/certificates/[id]/download/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import prisma from '@/lib/prisma'
 import { getPresignedUrl } from '@/minio/minio'
+import { certificateService } from '@/server/services/certificate-service'
+import { mapErrorToResponse } from '@/server/errors/map-error';
+import { employeeService } from '@/server/services/employee-service';
+
+// export async function GET(
+//   _req: NextRequest,
+//   { params }: { params: Promise<{ id: string }> }
+// ) {
+//   try {
+//     const { id } = await params
+//     const certificate = await certificateService.findByIdOrThrow(id);
+  
+//     const url = await getPresignedUrl(certificate.fileKey)
+//     console.log("url", url);
+    
+//     return NextResponse.json(url)
+//   } catch(error) {
+//     return mapErrorToResponse(error);
+//   }
+// }
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params
-  const cert = await prisma.certificate.findUnique({
-    where: { id },
-  })
-
-  if (!cert) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-
-  const url = await getPresignedUrl(cert.fileKey)
-
-  // Редиректим на временную ссылку
-  return NextResponse.redirect(url)
+  try {
+    const { id } = await params
+    
+    const employee = await employeeService.deleteById(id);
+    return NextResponse.json(employee)
+  } catch(error) {
+    return mapErrorToResponse(error);
+  }
 }

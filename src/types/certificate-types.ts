@@ -1,4 +1,4 @@
-import type { Certificate, Prisma } from "@/generated/prisma/client";
+import type { Certificate, Employee, NotificationLog, Prisma, Document } from "@/generated/prisma/client";
 
 export interface GetCertificateOptions {
   filter?: Prisma.CertificateWhereInput;
@@ -9,4 +9,10 @@ export interface GetCertificateOptions {
   includeEmployee?: boolean;
   includeNotificationLog?: boolean;
   includeDocuments?: boolean;
+}
+
+export type CertificatesWithIncludes = Certificate & {
+  employee?: Employee,
+  documents?: Document[],
+  notificationLog?: NotificationLog
 }

@@ -46,3 +46,17 @@ export class AlreadyExistsError extends AppError {
     this.name = "AlreadyExistsError"
   }
 }
+
+export class ConflictError extends AppError {
+  constructor(message = "Conflict error", options?: AppErrorOptions) {
+    super(message, "CONFLICT", 422, options);
+    this.name = "ConflictError"
+  }
+}
+
+export class DatabaseError extends AppError {
+  constructor(message = "Database error", options?: AppErrorOptions) {
+    super(message, "DATABASE", 422, options);
+    this.name = "DatabaseError"
+  }
+}

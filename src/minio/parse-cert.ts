@@ -1,4 +1,5 @@
 // lib/parse-cert.ts
+import { ConflictError, NotFoundError } from '@/server/errors/app-error'
 import { X509Certificate } from 'crypto'
 import crypto from 'crypto'
 import path from 'path'
@@ -117,7 +118,7 @@ function extractCertsFromP7b(buffer: Buffer): Buffer[] {
     pos += totalLen
   }
 
-  if (!certs.length) throw new Error('В .p7b не найдено сертификатов')
+  if (!certs.length) throw new NotFoundError('В .p7b не найдено сертификатов')
   return certs
 }
 
@@ -134,5 +135,5 @@ export function parseCert(buffer: Buffer, fileName: string): ParsedCert {
     return extractFields(new X509Certificate(buffer), 'cer')
   }
 
-  throw new Error(`Неподдерживаемый формат файла: .${ext}. Поддерживаются: .cer, .p7b`)
+  throw new ConflictError(`Неподдерживаемый формат файла: .${ext}. Поддерживаются: .cer, .p7b`)
 }

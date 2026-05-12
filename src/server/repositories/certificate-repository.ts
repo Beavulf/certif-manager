@@ -1,46 +1,72 @@
 import prisma from "@/lib/prisma";
 import type { Prisma, PrismaClient, Certificate } from "@/generated/prisma/client";
-import type { GetCertificateOptions } from "@/types/certificate-types";
-import type { CertificateInclude } from "@/generated/prisma/models";
+import type { CertificateFindManyArgs, CertificateGetPayload } from "@/generated/prisma/models";
+import { handlePrismaError } from "../errors/prisma-error-handler";
 
 export type DbClient = PrismaClient | Prisma.TransactionClient;
 
 export function createCertificateRepository(db: DbClient = prisma) {
   return {
 
-    getAllWithOptions(options?: GetCertificateOptions): Promise<(Certificate & CertificateInclude)[]> {
-      const { filter, orderBy, include, skip, take } = options || {};
-      return db.certificate.findMany({
-        where: filter,
-        orderBy,
-        skip,
-        take,
-        include
-      });
+    async create(data: Prisma.CertificateCreateInput): Promise<Certificate> {
+      try {
+        return await db.certificate.create({ data });
+      } catch(error) {
+        handlePrismaError(error)
+      }
     },
 
-    create(data: Prisma.CertificateCreateInput): Promise<Certificate> {
-      return db.certificate.create({ data });
+    async findById(id: string): Promise<Certificate | null> {
+      try {
+        return await db.certificate.findUnique({ where: { id } });
+      } catch(error) {
+        handlePrismaError(error)
+      }
     },
 
-    findById(id: string): Promise<Certificate | null> {
-      return db.certificate.findUnique({ where: { id } });
+    async findByEmployeeId(employeeId: string): Promise<Certificate[]> {
+      try {
+        return await db.certificate.findMany({ 
+          where: { employeeId },
+          orderBy: { validTo: 'asc' },
+        });
+      } catch(error) {
+        handlePrismaError(error)
+      }
     },
 
-    findByEmployeeId(employeeId: string): Promise<Certificate | null> {
-      return db.certificate.findFirst({ where: { employeeId } });
+    async findBySerialNumber(serialNumber: string): Promise<Certificate | null> {
+      try {
+        return await db.certificate.findUnique({ where: { serialNumber } });
+      } catch(error) {
+        handlePrismaError(error)
+      }
     },
 
-    getDocuments(id: string) {
-      return db.certificate.findUnique({ where: { id }, include: { documents: true } });
+    async findMany<T extends CertificateFindManyArgs>(
+      args?: Prisma.SelectSubset<T, CertificateFindManyArgs>
+    ):Promise<CertificateGetPayload<T>[]> {
+      try {
+        return await db.certificate.findMany<T>(args);
+      } catch(error) {
+        handlePrismaError(error)
+      }
     },
 
-    updateById(id: string, data: Prisma.CertificateUpdateInput): Promise<Certificate> {
-      return db.certificate.update({ where: { id }, data });
+    async updateById(id: string, data: Prisma.CertificateUpdateInput): Promise<Certificate> {
+      try {
+        return await db.certificate.update({ where: { id }, data });
+      } catch(error) {
+        handlePrismaError(error)
+      }
     },
 
-    deleteById(id: string): Promise<Certificate> {
-      return db.certificate.delete({ where: { id } });
+    async deleteById(id: string): Promise<Certificate> {
+      try {
+        return await db.certificate.delete({ where: { id } });
+      } catch(error) {
+        handlePrismaError(error)
+      }
     },
   } as const;
 }

@@ -1,41 +1,66 @@
 import prisma from "@/lib/prisma";
 import type { Prisma, PrismaClient, Employee } from "@/generated/prisma/client";
-import type { EmployeePayloadWithCertificates, GetEmployeesOptions } from "@/types/employee-types";
+import type { EmployeePayloadWithCertificates } from "@/types/employee-types";
+import { handlePrismaError } from "../errors/prisma-error-handler";
+import type { EmployeeFindManyArgs, EmployeeGetPayload } from "@/generated/prisma/models";
 
 export type DbClient = PrismaClient | Prisma.TransactionClient;
 
 export function createEmployeeRepository(db: DbClient = prisma) {
   return {
-    create(data: Prisma.EmployeeCreateInput): Promise<Employee> {
-      return db.employee.create({ data });
+    async create(data: Prisma.EmployeeCreateInput): Promise<Employee> {
+      try {
+        return await db.employee.create({ data });
+      } catch(error) {
+        handlePrismaError(error);
+      }
     },
 
     // Получение всех сотрудников с возможностью фильтрации.
-    getAllWithOptions(options?: GetEmployeesOptions): Promise<Employee[]> {
-      const { filter, orderBy, include, skip, take } = options || {};
-      return db.employee.findMany({
-        where: filter,
-        orderBy,
-        skip,
-        take,
-        include
-      });
+    async findMany<T extends EmployeeFindManyArgs>(
+      args?: Prisma.SelectSubset<T, EmployeeFindManyArgs>
+    ):Promise<EmployeeGetPayload<T>[]> {
+      try {
+        return await db.employee.findMany<T>(args);
+      } catch(error) {
+        handlePrismaError(error)
+      }
     },
 
-    findById(id: string, include?: Prisma.EmployeeInclude): Promise<EmployeePayloadWithCertificates> {
-      return db.employee.findUnique({ where: { id }, include: include});
+    async findById(id: string, include?: Prisma.EmployeeInclude): Promise<EmployeePayloadWithCertificates> {
+      try {
+        return await db.employee.findUnique({ where: { id }, include: include});
+      } catch(error) {
+        handlePrismaError(error);
+      }
     },
 
-    findByAdUsername(adUsername: string, include?: Prisma.EmployeeInclude): Promise<EmployeePayloadWithCertificates> {
-      return db.employee.findUnique({ where: { adUsername }, include: include });
+    async findByAdUsername(adUsername: string, include?: Prisma.EmployeeInclude): Promise<EmployeePayloadWithCertificates> {
+      try {
+        return await db.employee.findUnique({ where: { adUsername }, include: include });
+      } catch(error) {
+        handlePrismaError(error);
+      }
     },
 
-    updateById(id: string, data: Prisma.EmployeeUpdateInput): Promise<Employee> {
-      return db.employee.update({ where: { id }, data, include: { certificates: true }});
+    async updateById(id: string, data: Prisma.EmployeeUpdateInput): Promise<Employee> {
+      try {
+        return await db.employee.update({ 
+          where: { id }, 
+          data, 
+          // include: { certificates: true }
+        });
+      } catch(error) {
+        handlePrismaError(error);
+      }
     },
 
-    deleteById(id: string): Promise<Employee> {
-      return db.employee.delete({ where: { id } });
+    async deleteById(id: string): Promise<Employee> {
+      try {
+        return await db.employee.delete({ where: { id } });
+      } catch(error) {
+        handlePrismaError(error);
+      }
     },
   } as const;
 }
