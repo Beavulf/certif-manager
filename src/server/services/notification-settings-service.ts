@@ -1,13 +1,18 @@
 import { notificationSettingsRepository } from "../repositories/notification-settings-repository";
-import type { NotificationSettings } from "@/generated/prisma/client";
+import type { NotificationSettings, Prisma } from "@/generated/prisma/client";
 import { AlreadyExistsError, NotFoundError } from "../errors/app-error";
-import type { Prisma } from "@/generated/prisma/client";
 
 export const notificationSettingsService = {
   async findMany(
     args?: Prisma.NotificationSettingsFindManyArgs
   ): Promise<NotificationSettings[]> {
     return await notificationSettingsRepository.findMany(args);
+  },
+
+  async findFirst(
+    args?: Prisma.NotificationSettingsFindFirstArgs
+  ): Promise<NotificationSettings | null> {
+    return await notificationSettingsRepository.findFirst(args);
   },
 
   async create(data: Prisma.NotificationSettingsCreateInput): Promise<NotificationSettings> {

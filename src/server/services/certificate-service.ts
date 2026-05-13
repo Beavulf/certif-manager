@@ -1,7 +1,7 @@
 import type { CertificatesWithIncludes } from "@/types/certificate-types";
 import { certificateRepository } from "../repositories/certificate-repository";
 import type { Prisma, Certificate, Document } from "@/generated/prisma/client";
-import { AlreadyExistsError, NotFoundError } from "../errors/app-error";
+import { AlreadyExistsError, BadRequestError, NotFoundError } from "../errors/app-error";
 import { employeeService } from "./employee-service";
 import { documentRepository } from "../repositories/document-repository";
 import { generateCertKey } from "@/minio/file-key";
@@ -27,6 +27,11 @@ export const certificateService = {
    {
     const employee = await employeeService.findByIdOrThrow(employeeId);
     const parsedCert = parseCert(fileBuffer, fileName);
+
+    if (!parsedCert.subjectCN || parsedCert.subjectCN === 'Unknown') {
+      throw new BadRequestError("Не удалось определить ФИО пользователя в сертификате");
+    }
+
     const expireValidTo = new Date(parsedCert.validTo) < new Date();
     
     await this.ensureUniqueSerialNumber(parsedCert.serialNumber);
@@ -37,7 +42,7 @@ export const certificateService = {
       serialNumber: parsedCert.serialNumber,
       thumbprint: parsedCert.thumbprint,
       subjectCN: parsedCert.subjectCN,
-      subjectEmail: "non",
+      subjectEmail: employee.email,
       issuer: "non",
       validFrom: parsedCert.validFrom,
       validTo: parsedCert.validTo,
@@ -92,6 +97,10 @@ export const certificateService = {
       throw new NotFoundError("Сертификат не найден");
     }
     return certificate;
+  },
+
+  async updateMany(args: Prisma.CertificateUpdateManyArgs): Promise<Prisma.BatchPayload> {
+    return await certificateRepository.updateMany(args);
   },
 
   async getDocuments(id: string):Promise<Document[]> {

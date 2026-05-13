@@ -2,7 +2,7 @@ import { NotFoundError } from "../errors/app-error";
 import type { NotificationLogWithIncludes } from "@/types/notification-log-types";
 import { notificationLogRepository } from "../repositories/notification-log-repository";
 import type { NotificationLogCreateInput, NotificationLogFindManyArgs } from "@/generated/prisma/models";
-import type { NotificationLog } from "@/generated/prisma/client";
+import type { NotificationLog, Prisma } from "@/generated/prisma/client";
 import { certificateService } from "./certificate-service";
 
 export const notificationLogService = {
@@ -20,6 +20,10 @@ export const notificationLogService = {
 
   async findById(id: string):Promise<NotificationLog | null> {
     return await notificationLogRepository.findById(id);
+  },
+
+  async findFirst(args?: Prisma.NotificationLogFindFirstArgs):Promise<NotificationLog | null> {
+    return await notificationLogRepository.findFirst(args);
   },
 
   async findByIdOrThrow(id: string):Promise<NotificationLog> {

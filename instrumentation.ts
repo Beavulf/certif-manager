@@ -2,12 +2,12 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     // Инициализация MinIO бакета
     const { initMinioBucket } = await import('@/minio/minio')
-    console.log('MINIOINITIALIZATED');
-    
+    console.log('✅ MINIO bucket initialized');
+
     await initMinioBucket()
 
-    // Cron (уже настроен)
-    // const { startCronJobs } = await import('./lib/cron')
-    // startCronJobs()
+    const { startCronJobs } = await import('./src/lib/cron');
+    console.log('✅ Cron jobs started');
+    await startCronJobs();
   }
 }

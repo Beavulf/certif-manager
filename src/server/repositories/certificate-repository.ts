@@ -61,6 +61,14 @@ export function createCertificateRepository(db: DbClient = prisma) {
       }
     },
 
+    async updateMany(args: Prisma.CertificateUpdateManyArgs): Promise<Prisma.BatchPayload> {
+      try {
+        return await db.certificate.updateMany(args);
+      } catch(error) {
+        handlePrismaError(error)
+      }
+    },
+
     async deleteById(id: string): Promise<Certificate> {
       try {
         return await db.certificate.delete({ where: { id } });
