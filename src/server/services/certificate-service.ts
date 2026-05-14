@@ -6,7 +6,7 @@ import { employeeService } from "./employee-service";
 import { documentRepository } from "../repositories/document-repository";
 import { generateCertKey } from "@/minio/file-key";
 import { parseCert } from "@/minio/parse-cert";
-import { uploadFile } from "@/minio/minio";
+import { deleteFile, uploadFile } from "@/minio/minio";
 
 export const certificateService = {
 
@@ -57,6 +57,16 @@ export const certificateService = {
         }
       }
     });
+  },
+
+  async deleteById(id: string):Promise<Certificate> {
+    const certificate = await this.findByIdOrThrow(id);
+    await deleteFile(certificate.fileKey);
+    const deleted = await certificateRepository.deleteById(id);
+    if (!deleted) {
+      throw new NotFoundError("Сертификат для удаления не найден");
+    }
+    return deleted;
   },
 
   async findById(id: string):Promise<Certificate | null> {

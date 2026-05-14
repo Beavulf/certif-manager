@@ -1,0 +1,34 @@
+'use server'
+
+import { certificateService } from "@/server/services/certificate-service";
+import {z} from 'zod'
+
+const deleteCertificateSchema = z.object({
+  id: z.string({ error: 'id обязателен' })
+    .min(1, 'id не может быть пустым')
+    .uuid()
+})
+
+export default async function deleteCertificateAction(id: string) {
+  const parsed = deleteCertificateSchema.safeParse({ id })
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: 'Ошибка валидации',
+      fieldErrors: parsed.error.flatten().fieldErrors
+    }
+  }
+  try {
+    const certificate = await certificateService.deleteById(id);
+    return {
+      success: true,
+      data: certificate
+    }
+  } catch(error) {
+    return {
+      success: false,
+      error: 'Ошибка сервера',
+      fieldErrors: {}
+    }
+  }
+}
