@@ -60,3 +60,10 @@ export class DatabaseError extends AppError {
     this.name = "DatabaseError"
   }
 }
+
+export class SmtpError extends AppError {
+  constructor(message = "Ошибка SMTP", options?: AppErrorOptions) {
+    super(message, "SMTP", 500, options);
+    this.name = "SmtpError";
+  }
+}

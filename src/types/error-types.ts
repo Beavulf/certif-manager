@@ -6,6 +6,7 @@ export const AppErrorCode = {
   INTERNAL: "INTERNAL_ERROR",
   BAD_REQUEST: "BAD_REQUEST",
   CONFLICT: "CONFLICT",
-  DATABASE: "DATABASE"
+  DATABASE: "DATABASE",
+  SMTP: "SMTP",
 } as const
 export type AppErrorCode = typeof AppErrorCode[keyof typeof AppErrorCode];

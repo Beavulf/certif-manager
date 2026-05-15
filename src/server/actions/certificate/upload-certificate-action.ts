@@ -1,6 +1,7 @@
 'use server'
 
 import { uploadCertificateSchema } from "@/schemas/upload-certificate-schema"
+import { auditlogService } from "@/server/services/auditlog-service";
 import { certificateService } from "@/server/services/certificate-service";
 
 export default async function uploadCertificateAction(formData: FormData) {
@@ -29,6 +30,13 @@ export default async function uploadCertificateAction(formData: FormData) {
       file.type,
       buffer,
     )
+
+    await auditlogService.log({
+      action: "uploadCert",
+      entityType: 'certificate',
+      entityId: certificate.id,
+      displayName: `Сертификат загружен: ${certificate.serialNumber}`
+    })
 
     return { success: true, data: certificate }
   } catch(error) {

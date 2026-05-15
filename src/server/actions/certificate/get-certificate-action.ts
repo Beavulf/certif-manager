@@ -1,33 +1,42 @@
-'user server'
+'use server'
 
 import { getCertificateSchema } from "@/schemas/get-certificate-schema";
 import { certificateService } from "@/server/services/certificate-service";
 
 export async function getCertificateAction(formData: FormData) {
-  const idCert = String(formData.get('id'))
-  const employeeId = String(formData.get('employeeId'))
-  const serialNumber = String(formData.get('serialNumber'))
+  const idCert = formData.get('id')
+  const employeeId = formData.get('employeeId')
+  const serialNumber = formData.get('serialNumber')
   
   const resultInput =
     idCert ? { id: idCert } :
     employeeId ? { employeeId } :
     serialNumber ? { serialNumber } :
     {};
-
+  console.log(resultInput);
+  
   const parsed = getCertificateSchema.safeParse({
     resultInput
   })
 
   if (!parsed.success) {
-    const fields = parsed.error.flatten().fieldErrors
+    // Корректно получаем ошибки валидации по полям для передачи в UI
+    const fieldErrors = parsed.error.message;
     return {
       success: false,
       error: 'Ошибка валидации',
-      fieldErrors: fields,
+      fieldErrors,
     }
   }
 
   const { identify } = parsed.data;
+
+  if (!identify) {
+    return {
+      success: false,
+      error: 'Ошибка валидации, вернул undefined',
+    }
+  }
   
   try {
     const certificate = 

@@ -47,7 +47,8 @@ export const notificationLogService = {
         daysBeforeExpiry: days,
         sentAt: {
           gte: startOfToday
-        }
+        },
+        status: 'sent'
       } 
     });
     

@@ -5,7 +5,6 @@ import { certificateService } from "./certificate-service";
 import { generateDocKey } from "@/minio/file-key";
 import { deleteFile, uploadFile } from "@/minio/minio";
 import prisma from "@/lib/prisma";
-import { createAuditLogRepository } from "../repositories/auditlog-repository";
 import { auditlogService } from "./auditlog-service";
 
 export const documentService = {

@@ -27,7 +27,7 @@ export default async function deleteCertificateAction(id: string) {
   } catch(error) {
     return {
       success: false,
-      error: 'Ошибка сервера',
+      error: `Ошибка сервера: ${error.message}`,
       fieldErrors: {}
     }
   }
