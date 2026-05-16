@@ -100,10 +100,6 @@ export const employeeService = {
     const employee = await this.findByIdOrThrow(employeeId, true);
     const certificate = await certificateService.findByIdOrThrow(certificateId);
 
-    if (!('certificates' in employee)) {
-      throw new NotFoundError("Нет привязанных сертификатов к сотруднику");
-    }
-
     return await employeeRepository.updateById(employee.id, {
       certificates: {
         disconnect: {

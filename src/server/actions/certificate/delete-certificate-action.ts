@@ -18,17 +18,9 @@ export default async function deleteCertificateAction(id: string) {
       fieldErrors: parsed.error.flatten().fieldErrors
     }
   }
-  try {
-    const certificate = await certificateService.deleteById(id);
-    return {
-      success: true,
-      data: certificate
-    }
-  } catch(error) {
-    return {
-      success: false,
-      error: `Ошибка сервера: ${error.message}`,
-      fieldErrors: {}
-    }
+  const certificate = await certificateService.deleteById(id);
+  return {
+    success: true,
+    data: certificate
   }
 }

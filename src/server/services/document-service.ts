@@ -1,11 +1,10 @@
 import { createDocumentRepository, documentRepository } from "../repositories/document-repository";
 import { type Prisma, type Document, FileType } from "@/generated/prisma/client";
-import { NotFoundError } from "../errors/app-error";
+import { AlreadyExistsError, NotFoundError } from "../errors/app-error";
 import { certificateService } from "./certificate-service";
 import { generateDocKey } from "@/minio/file-key";
-import { deleteFile, uploadFile } from "@/minio/minio";
+import { deleteFile, fileExists, uploadFile } from "@/minio/minio";
 import prisma from "@/lib/prisma";
-import { auditlogService } from "./auditlog-service";
 
 export const documentService = {
 
@@ -30,46 +29,49 @@ export const documentService = {
     });
 
     if (duplicate.length > 0) {
-      throw new NotFoundError("Документ с таким названием уже существует");
+      throw new AlreadyExistsError("Документ с таким названием уже существует");
     }
 
     const key = generateDocKey(certificate.id, fileName);
-    const result = await prisma.$transaction(async (tx) => {
-      const repo = createDocumentRepository(tx);
-      await uploadFile(key, fileBuffer, fileType || 'application/octet-stream');
-      
-      const data: Prisma.DocumentCreateInput = {
-        certificate: { connect: { id: certificate.id } },
-        fileName,
-        fileType,
-        fileKey: key,
-        uploadedBy,
-      };
-      const createdDoc = await repo.create(data);
-      return createdDoc;
-    });
-
-    await auditlogService.log({
-      adUsername: uploadedBy,
-      action: "uploadDoc",
-      entityType: 'document',
-      entityId: result.id,
-      ipAddress: ""
-    })
-    return result;
+    
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        const repo = createDocumentRepository(tx);
+        await uploadFile(key, fileBuffer, fileType || 'application/octet-stream');
+        
+        const data: Prisma.DocumentCreateInput = {
+          fileName,
+          fileType,
+          fileKey: key,
+          uploadedBy,
+          certificate: { connect: { id: certificate.id } },
+        };
+        const createdDoc = await repo.create(data);
+        return createdDoc;
+      });
+  
+      return result;
+    } catch(error) {
+      await deleteFile(key);
+      throw error;
+    }
   },
 
   async deleteById(id: string): Promise<Document> {
     const document = await this.findByIdOrThrow(id);
+
+    const isFileExists = await fileExists(document.fileKey);
+    if (!isFileExists) {
+      throw new NotFoundError("Файл (хранилище) для удаления не найден");
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const repo = createDocumentRepository(tx);
-      await deleteFile(document.fileKey);
       const deleted = await repo.deleteById(document.id);
+      await deleteFile(document.fileKey);
       return deleted;
     });
-    if (!result) {
-      throw new NotFoundError("Документ для удаления не найден");
-    }
+
     return result;
   },
 

@@ -1,24 +1,30 @@
 import { z } from 'zod'
 
 export const getBySerialNumberSchema = z.object({
-  serialNumber: z.string().min(16, 'serialNumber не может быть пустым'),
+  serialNumber: z
+  .string({error: 'serialNumber должен быть строкой'})
+  .min(1, 'serialNumber не может быть пустым'),
 })
 
 const getByEmployeeIdSchema = z.object({
-  employeeId: z.string().min(1).uuid(),
+  employeeId: z
+  .string({error: 'employeeId должен быть строкой'})
+  .min(1, 'employeeId не может быть пустым')
+  .uuid({error: 'employeeId должен быть UUID'}),
 })
 
 const getByIdSchema = z.object({
-  id: z.string().min(1).uuid(),
+  id: z
+  .string({error: 'employeeId должен быть строкой'})
+  .min(1, 'employeeId не может быть пустым')
+  .uuid({error: 'employeeId должен быть UUID'}),
 })
 
-export const getCertificateSchema = z.union([
-  getByEmployeeIdSchema.transform((d) => ({ type: 'employeeId' as const, value: d.employeeId })),
-  getByIdSchema.transform((d) => ({ type: 'id' as const, value: d.id })),
-  getBySerialNumberSchema.transform((d) => ({ type: 'serialNumber' as const, value: d.serialNumber })),
+export const getCertificateSchema = z
+.union([
+  getByEmployeeIdSchema.transform((d) => ({ employeeId: d.employeeId })),
+  getByIdSchema.transform((d) => ({ id: d.id })),
+  getBySerialNumberSchema.transform((d) => ({ serialNumber: d.serialNumber })),
 ])
 
 export type GetCertificateInput = z.infer<typeof getCertificateSchema>
-// { type: 'employeeId'; value: string }
-// | { type: 'id'; value: string }
-// | { type: 'serialNumber'; value: string }

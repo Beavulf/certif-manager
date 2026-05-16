@@ -32,7 +32,7 @@ export const certificateService = {
       throw new BadRequestError("Не удалось определить ФИО пользователя в сертификате");
     }
 
-    const expireValidTo = new Date(parsedCert.validTo) < new Date();
+    const isExpired = new Date(parsedCert.validTo) < new Date();
     
     await this.ensureUniqueSerialNumber(parsedCert.serialNumber);
     const key = generateCertKey(employee.id, fileName);
@@ -49,7 +49,7 @@ export const certificateService = {
       certType: parsedCert.certType,
       fileKey: key,
       uploadedBy: uploadedBy,
-      status: expireValidTo ? "expired" : "active",
+      status: isExpired ? "expired" : "active",
       notes: "non",
       employee: {
         connect: {
@@ -63,9 +63,6 @@ export const certificateService = {
     const certificate = await this.findByIdOrThrow(id);
     await deleteFile(certificate.fileKey);
     const deleted = await certificateRepository.deleteById(id);
-    if (!deleted) {
-      throw new NotFoundError("Сертификат для удаления не найден");
-    }
     return deleted;
   },
 
@@ -81,11 +78,8 @@ export const certificateService = {
     return certificate;
   },
 
-  async findByEmployeeIdOrThrow(employeeId: string):Promise<Certificate[]> {
+  async findByEmployeeId(employeeId: string):Promise<Certificate[]> {
     const employee = await employeeService.findByIdOrThrow(employeeId, true);
-    if (!('certificates' in employee)) {
-      throw new NotFoundError("Нет привязанных сертификатов к сотруднику");
-    }
     return await certificateRepository.findByEmployeeId(employee.id);
   },
 

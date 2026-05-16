@@ -21,7 +21,7 @@ export const userService = {
     return await userRepository.findByAdUsername(adUsername);
   },
 
-  async findByAdUsernameOrThrow(adUsername: string): Promise<User | null> {
+  async findByAdUsernameOrThrow(adUsername: string): Promise<User> {
     const user = await userRepository.findByAdUsername(adUsername);
     if (!user) {
       throw new NotFoundError("Пользователь не найден");

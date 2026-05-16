@@ -1,10 +1,14 @@
 'use client'
 
+import { useAuthUser } from "@/hooks/localstorageHooks";
 import { cn } from "@/lib/utils";
+import { getAuthToken } from "@/server/actions/auth-action";
 import { getCertificateAction } from "@/server/actions/certificate/get-certificate-action";
 import uploadCertificateAction from "@/server/actions/certificate/upload-certificate-action";
 
+
 export default function MyForm() {
+  const {authUser, getUsername} = useAuthUser();
 
   const handleGetCertificates = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -29,12 +33,17 @@ export default function MyForm() {
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-  
+      const adUsername = getUsername();
       const form = e.currentTarget;
       const formData = new FormData(form);
-      const {success, data} = await uploadCertificateAction(formData)
+      if (!adUsername) {
+        return;
+      }
+      const {success, data, error, fieldErrors} = await uploadCertificateAction(formData, adUsername)
       console.log(success);
       console.log(data);
+      console.log(error);
+      console.log(fieldErrors);
     };
 
     const handleCreateEmployee = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -49,6 +58,20 @@ export default function MyForm() {
       
       const data = await res.json();
       console.log(data);
+    }
+
+    const handleAuth = async () => {
+      const token = await getAuthToken("beavulf","Gjnjvexnjvjue1~~~~");
+      if (!token.success) {
+        console.log(token.error);
+        return;
+      }
+      if (!token.data) {
+        return;
+      }
+      authUser(token.data);
+      const username = getUsername();
+      console.log(username);
     }
   
     return (
@@ -113,7 +136,7 @@ export default function MyForm() {
           <label className="flex flex-col gap-1 text-gray-700 font-medium">
               Идентификатор сертификата
               <input
-                name="serialNumber"
+                name="employeeId"
                 type="text"
                 placeholder="Enter identify"
                 className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-200 transition"
@@ -125,8 +148,14 @@ export default function MyForm() {
               className="w-full mt-4 bg-amber-400 text-white font-semibold py-2 rounded shadow hover:bg-amber-500 transition cursor-pointer"
             >
               Получить
-          </button>
+            </button>
         </form>
+        <button
+          onClick={handleAuth}
+          className="w-full mt-4 bg-amber-400 text-white font-semibold py-2 rounded shadow hover:bg-amber-500 transition cursor-pointer"
+        >
+          Авторизоваться
+        </button>
       </div>
     );
   }

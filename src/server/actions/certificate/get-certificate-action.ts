@@ -2,8 +2,11 @@
 
 import { getCertificateSchema } from "@/schemas/get-certificate-schema";
 import { certificateService } from "@/server/services/certificate-service";
+import type { SafeResult } from "@/types/safe-result-types";
 
-export async function getCertificateAction(formData: FormData) {
+export async function getCertificateAction(
+  formData: FormData
+):Promise<SafeResult> {
   const idCert = formData.get('id')
   const employeeId = formData.get('employeeId')
   const serialNumber = formData.get('serialNumber')
@@ -13,39 +16,38 @@ export async function getCertificateAction(formData: FormData) {
     employeeId ? { employeeId } :
     serialNumber ? { serialNumber } :
     {};
-  console.log(resultInput);
   
-  const parsed = getCertificateSchema.safeParse({
-    resultInput
-  })
+  const parsed = getCertificateSchema.safeParse(resultInput)
 
   if (!parsed.success) {
     // Корректно получаем ошибки валидации по полям для передачи в UI
-    const fieldErrors = parsed.error.message;
     return {
       success: false,
       error: 'Ошибка валидации',
-      fieldErrors,
+      fieldErrors:parsed.error.flatten().fieldErrors,
     }
   }
-
-  const { identify } = parsed.data;
-
+  type ParsedType = typeof parsed.data
+  const identify: ParsedType = parsed.data;
+  
   if (!identify) {
     return {
       success: false,
       error: 'Ошибка валидации, вернул undefined',
+      fieldErrors: {}
     }
   }
   
-  try {
-    const certificate = 
-      idCert ? await certificateService.findById(identify) :
-      employeeId ? await certificateService.findByEmployeeIdOrThrow(identify) :
-      serialNumber ? await certificateService.findBySerialNumber(identify) : {}
-
-    return { success: true, data: certificate }
-  } catch(error) {
-    return {success: false, error: `Непредвиденная ошибка: ${error.message}`, fieldErrors: {}}
+  let certificate;
+  if ("id" in identify) {
+    certificate = await certificateService.findById(identify.id);
+  } else if ("employeeId" in identify) {
+    certificate = await certificateService.findByEmployeeId(identify.employeeId);
+  } else if ("serialNumber" in identify) {
+    certificate = await certificateService.findBySerialNumber(identify.serialNumber);
+  } else {
+    certificate = {};
   }
+  
+  return { success: true, data: certificate }
 }

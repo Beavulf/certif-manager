@@ -56,7 +56,7 @@ export const notificationLogService = {
   },
 
   async getNotificationLogs(certificateId: string):Promise<NotificationLog[]> {
-    const certificate = await this.findByIdOrThrow(certificateId);
+    const certificate = await certificateService.findByIdOrThrow(certificateId);
     const notifyLog = await notificationLogRepository.findMany({
       where: {
         certificateId: certificate.id

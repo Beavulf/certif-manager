@@ -18,3 +18,23 @@ export function mapErrorToResponse(error: unknown) {
     { status: 500 }
   );
 }
+
+export function mapErrorToActionResult(error: unknown) {
+  if (error instanceof AppError) {
+    console.error("AppError:", error.code, error.message, "cause:", error.cause);
+    return {
+      success: false,
+      error: error.message,
+      code: error.code,
+      fieldErrors: {},
+    };
+  }
+
+  console.error(error);
+  return {
+    success: false,
+    error: "Внутренняя ошибка сервера",
+    code: "INTERNAL",
+    fieldErrors: {},
+  };
+}

@@ -33,7 +33,17 @@ export async function uploadFile(
   })
   return key
 }
-  
+export async function fileExists(key: string): Promise<boolean> {
+  try {
+    await minioClient.statObject(BUCKET, key)
+    return true
+  } catch (err) {
+    if (err && err.code === 'NotFound') {
+      return false
+    }
+    throw err
+  }
+}
   // Получить временную ссылку на скачивание (10 минут)
   export async function getPresignedUrl(key: string): Promise<string> {
     return minioClient.presignedGetObject(BUCKET, key, 60 * 10)
