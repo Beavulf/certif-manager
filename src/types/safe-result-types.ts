@@ -1,6 +1,6 @@
-export interface SafeResult {
+export interface SafeResult<T = unknown> {
   success: boolean;
-  data?: string;
+  data?: T;
   error?: string;
   fieldErrors?: Record<string, unknown>;
 }

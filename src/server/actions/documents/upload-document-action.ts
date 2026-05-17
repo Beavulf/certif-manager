@@ -9,6 +9,7 @@ export default async function uploadDocumentAction(
   formData: FormData,
   adUsername: string
 ):Promise<SafeResult> {
+
   const parsed = uploadDocumentSchema.safeParse({
     certificateId: formData.get("certificateId"),
     file: formData.get("file")
@@ -33,13 +34,15 @@ export default async function uploadDocumentAction(
     adUsername,
   )
 
-  await auditlogService.log({
-    adUsername: adUsername,
-    action: "uploadDoc",
-    entityType: 'document',
-    entityId: document.id,
-    displayName: `Файл загружен: ${document.fileName}`,
-  })
+  try {
+    await auditlogService.log({
+      adUsername: adUsername,
+      action: "uploadDoc",
+      entityType: 'document',
+      entityId: document.id,
+      displayName: `Файл загружен: ${document.fileName}`,
+    })
+  } catch {}
 
   return { success: true, data: document.id }
 }

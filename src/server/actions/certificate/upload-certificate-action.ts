@@ -35,13 +35,15 @@ export default async function uploadCertificateAction(
     buffer,
   )
 
-  await auditlogService.log({
-    action: "uploadCert",
-    entityType: 'certificate',
-    entityId: certificate.id,
-    displayName: `Сертификат загружен: ${certificate.serialNumber}`,
-    adUsername: adUsername
-  })
+  try {
+    await auditlogService.log({
+      action: "uploadCert",
+      entityType: 'certificate',
+      entityId: certificate.id,
+      displayName: `Сертификат загружен: ${certificate.serialNumber}`,
+      adUsername: adUsername
+    })
+  } catch {}
 
-  return { success: true, data: certificate.id }
+  return { success: true, data: certificate }
 }
