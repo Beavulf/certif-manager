@@ -1,22 +1,25 @@
 'use client'
 
+import { Button } from "@/components/ui/button";
 import { useAuthUser } from "@/hooks/localstorageHooks";
+import { useGetCertificates, useGetCertificatesAll } from "@/hooks/use-certificate";
 import { cn } from "@/lib/utils";
 import { getAuthToken } from "@/server/actions/auth-action";
-import { getCertificateAction } from "@/server/actions/certificate/get-certificate-action";
 import uploadCertificateToEmployeeAction from "@/server/actions/certificate/upload-certificate-action";
-
 
 export default function MyForm() {
   const {authUser, getUsername} = useAuthUser();
-
+  const {data: allCertData} = useGetCertificatesAll();
+  const {data, mutate, isPending} = useGetCertificates();
+  console.log(allCertData);
+  
   const handleGetCertificates = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
     const formData = new FormData(form);
-    const result = await getCertificateAction(formData)
-
-    console.log(result);
+    await mutate({})
+    
+    // console.log(data);
   }
 
     const handleDownloadSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -136,19 +139,19 @@ export default function MyForm() {
           <label className="flex flex-col gap-1 text-gray-700 font-medium">
               Идентификатор сертификата
               <input
-                name="certificateId"
+                name="employeeId"
                 type="text"
                 placeholder="Enter identify"
                 className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-200 transition"
                 required
               />
             </label>
-            <button
+            <Button
               type="submit"
               className="w-full mt-4 bg-amber-400 text-white font-semibold py-2 rounded shadow hover:bg-amber-500 transition cursor-pointer"
             >
               Получить
-            </button>
+            </Button>
         </form>
         <button
           onClick={handleAuth}

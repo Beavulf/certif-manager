@@ -1,10 +1,11 @@
-import 'server-only';
+'use server'
 
 import { cookies } from 'next/headers';
 import { jwtDecode } from 'jwt-decode';
 
 import { COOKIE_INFO } from '@/constants/cookie';
 import { redirect } from 'next/navigation';
+
 
 type JwtPayload = {
   username?: string;
@@ -62,8 +63,6 @@ export async function requireAuth(): Promise<JwtPayload> {
   const user = await getSessionUser();
 
   if (!user) {
-    const cookieStore = await cookies();
-    cookieStore.delete(COOKIE_INFO.name);
     redirect('/login');    
   }
 

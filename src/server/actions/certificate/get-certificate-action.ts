@@ -57,6 +57,14 @@ export async function getCertificateAction(
   }
 }
 
-// export async function getCertificatesByFilter() {
-
-// }
+export async function getCertificatesByFindMany(args?: Parameters<typeof certificateService.findMany>[0]) {
+  try {
+    const certificates = await certificateService.findMany(args);
+    return {
+      success: true,
+      data: certificates,
+    };
+  } catch (error) {
+    return mapErrorToSafeResult(error);
+  }
+}
