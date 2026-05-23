@@ -60,5 +60,26 @@ export function useAuthUser() {
     }
   }, []);
 
-  return { authUser, getUsername };
+  const isAuth = useCallback((): boolean => {
+    if (typeof window === "undefined") return false;
+    const token = localStorage.getItem("certManagerToken");
+    if (!token) {
+      return false;
+    }
+    try {
+      const decode: {username: string, exp: number} = jwtDecode(token);
+      if (decode.exp && decode.exp < Date.now() / 1000) {
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem("certManagerToken");
+  },[])
+
+  return { authUser, getUsername, isAuth, logout};
 }

@@ -4,7 +4,7 @@ import { useAuthUser } from "@/hooks/localstorageHooks";
 import { cn } from "@/lib/utils";
 import { getAuthToken } from "@/server/actions/auth-action";
 import { getCertificateAction } from "@/server/actions/certificate/get-certificate-action";
-import uploadCertificateAction from "@/server/actions/certificate/upload-certificate-action";
+import uploadCertificateToEmployeeAction from "@/server/actions/certificate/upload-certificate-action";
 
 
 export default function MyForm() {
@@ -39,7 +39,7 @@ export default function MyForm() {
       if (!adUsername) {
         return;
       }
-      const {success, data, error, fieldErrors} = await uploadCertificateAction(formData, adUsername)
+      const {success, data, error, fieldErrors} = await uploadCertificateToEmployeeAction(formData, adUsername)
       console.log(success);
       console.log(data);
       console.log(error);
@@ -136,7 +136,7 @@ export default function MyForm() {
           <label className="flex flex-col gap-1 text-gray-700 font-medium">
               Идентификатор сертификата
               <input
-                name="employeeId"
+                name="certificateId"
                 type="text"
                 placeholder="Enter identify"
                 className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-amber-200 transition"

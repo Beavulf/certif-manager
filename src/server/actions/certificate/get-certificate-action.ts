@@ -1,6 +1,7 @@
 'use server'
 
 import { getCertificateSchema } from "@/schemas/get-certificate-schema";
+import { mapErrorToSafeResult } from "@/server/errors/map-error";
 import { certificateService } from "@/server/services/certificate-service";
 import type { SafeResult } from "@/types/safe-result-types";
 
@@ -38,16 +39,24 @@ export async function getCertificateAction(
     }
   }
   
-  let certificate;
-  if ("id" in identify) {
-    certificate = await certificateService.findById(identify.id);
-  } else if ("employeeId" in identify) {
-    certificate = await certificateService.findByEmployeeId(identify.employeeId);
-  } else if ("serialNumber" in identify) {
-    certificate = await certificateService.findBySerialNumber(identify.serialNumber);
-  } else {
-    certificate = {};
+  try {
+    let certificate;
+    if ("id" in identify) {
+      certificate = await certificateService.findById(identify.id);
+    } else if ("employeeId" in identify) {
+      certificate = await certificateService.findByEmployeeId(identify.employeeId);
+    } else if ("serialNumber" in identify) {
+      certificate = await certificateService.findBySerialNumber(identify.serialNumber);
+    } else {
+      certificate = {};
+    }
+    
+    return { success: true, data: certificate }
+  } catch(error) {
+    return mapErrorToSafeResult(error)
   }
-  
-  return { success: true, data: certificate }
 }
+
+// export async function getCertificatesByFilter() {
+
+// }

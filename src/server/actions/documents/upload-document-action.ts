@@ -1,6 +1,7 @@
 'use server'
 
 import { uploadDocumentSchema } from "@/schemas/upload-file-schema"
+import { mapErrorToSafeResult } from "@/server/errors/map-error";
 import { auditlogService } from "@/server/services/auditlog-service";
 import { documentService } from "@/server/services/document-service";
 import type { SafeResult } from "@/types/safe-result-types";
@@ -23,18 +24,18 @@ export default async function uploadDocumentAction(
     }
   }
 
-  const { certificateId, file } = parsed.data;
-  const buffer = Buffer.from(await file.arrayBuffer())
-
-  const document = await documentService.create(
-    certificateId,
-    buffer,
-    file.fileType,
-    file.name,
-    adUsername,
-  )
-
   try {
+    const { certificateId, file } = parsed.data;
+    const buffer = Buffer.from(await file.arrayBuffer())
+  
+    const document = await documentService.create(
+      certificateId,
+      buffer,
+      file.fileType,
+      file.name,
+      adUsername,
+    )
+  
     await auditlogService.log({
       adUsername: adUsername,
       action: "uploadDoc",
@@ -42,7 +43,9 @@ export default async function uploadDocumentAction(
       entityId: document.id,
       displayName: `Файл загружен: ${document.fileName}`,
     })
-  } catch {}
-
-  return { success: true, data: document.id }
+  
+    return { success: true, data: document }
+  } catch (error) {
+    return mapErrorToSafeResult(error)
+  }
 }

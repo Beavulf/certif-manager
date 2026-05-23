@@ -23,6 +23,7 @@ export const certificateService = {
     uploadedBy: string,
     fileType: string,
     fileBuffer: Buffer,
+    notes?: string,
   ):Promise<Certificate>
    {
     const employee = await employeeService.findByIdOrThrow(employeeId);
@@ -43,14 +44,13 @@ export const certificateService = {
       thumbprint: parsedCert.thumbprint,
       subjectCN: parsedCert.subjectCN,
       subjectEmail: employee.email,
-      issuer: "non",
       validFrom: parsedCert.validFrom,
       validTo: parsedCert.validTo,
       certType: parsedCert.certType,
       fileKey: key,
       uploadedBy: uploadedBy,
       status: isExpired ? "expired" : "active",
-      notes: "non",
+      notes: notes,
       employee: {
         connect: {
           id: employee.id

@@ -18,6 +18,11 @@ export const uploadCertificateSchema = z.object({
       f => f.name.endsWith('.cer') || f.name.endsWith('.p7b'),
       'Допустимы только .cer и .p7b файлы'
     ),
+  
+  notes: z
+    .string('notes должен быть строкой')
+    .max(255, 'notes максимум 255 символов')
+    .optional(),
 })
 
 export const uploadDocumentSchema = z.object({

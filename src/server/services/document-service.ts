@@ -62,7 +62,7 @@ export const documentService = {
 
     const isFileExists = await fileExists(document.fileKey);
     if (!isFileExists) {
-      throw new NotFoundError("Файл (хранилище) для удаления не найден");
+      throw new NotFoundError("Файл (в хранилище) для удаления не найден");
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -80,6 +80,11 @@ export const documentService = {
     if (!document) {
       throw new NotFoundError("Документ не найден");
     }
+    return document;
+  },
+
+  async findById(id: string): Promise<Document | null> {
+    const document = await documentRepository.findById(id);
     return document;
   },
 

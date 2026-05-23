@@ -1,5 +1,6 @@
 'use server'
 
+import { mapErrorToSafeResult } from "@/server/errors/map-error";
 import { certificateService } from "@/server/services/certificate-service";
 import {z} from 'zod'
 
@@ -18,9 +19,14 @@ export default async function deleteCertificateAction(id: string) {
       fieldErrors: parsed.error.flatten().fieldErrors
     }
   }
-  const certificate = await certificateService.deleteById(id);
-  return {
-    success: true,
-    data: certificate
+  
+  try {
+    const certificate = await certificateService.deleteById(id);
+    return {
+      success: true,
+      data: certificate
+    }
+  } catch(error) {
+    return mapErrorToSafeResult(error)
   }
 }
