@@ -8,17 +8,66 @@ import { Input } from '@/components/ui/input';
 
 import { useGetCertificatesAll } from '@/hooks/use-certificate';
 import { toast } from 'sonner';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { SafeResult } from '@/types/safe-result-types';
+import type { Certificate } from '@/generated/prisma/client';
+import { FilterSelect } from './filter-select';
 
+const FILTER_FIELDS = [
+  {label: 'Кто добавил', value: 'uploadedBy'},
+  {label: 'ФИО', value: 'subjectCn'},
+  {label: 'Действует с', value: 'validFrom'},
+  {label: 'Истекает', value: 'validTo'},
+  {label: 'Статус', value: 'status'},
+]
 
-export function CertificatesPage() {
+export function CertificatesPage(
+  { initial }:{ initial:SafeResult<Certificate[]> }
+) {
   const [search, setSearch] = useState('');
-  const {data=[], isLoading, refetch, error} = useGetCertificatesAll(search);
+  const initialData = initial.success ? initial.data : []
+  const [selectedFields, setSelectedFields] = useState<string[]>([]);
+  // console.log(selectedFields);
 
-  if (error) toast.error(`Ошибка загрузки: ${error.message}`);
+  const {data=[], isPending, error} = useGetCertificatesAll({filter: search, initialData});
+  
+  const handleChangeFields = (selectedField: string) => {
+    setSelectedFields((prevSelectedFields) => {
+      if (prevSelectedFields.includes(selectedField)) {
+        return prevSelectedFields.filter((field) => field !== selectedField);
+      } else {
+        return [...prevSelectedFields, selectedField];
+      }
+    })
+  }
+  // для фильтрации на клиенте
+  // const filtered = useMemo(()=>{
+  //   return data.filter((item) => {
+  //     return item.subjectCN.toLowerCase().includes(search.toLowerCase())
+  //     || item.validFrom.getDate().toLocaleString().includes(search.toLowerCase())
+  //     || item.validTo.getDate().toString().includes(search.toLowerCase())
+  //     || item.uploadedBy.toLowerCase().includes(search.toLowerCase())
+  //   })
+  // },[data, search])
+  // console.log(filtered);
+    
+  useEffect(() => {
+    if (error) {
+      if (error instanceof Error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.error(error?.error || error);
+    }
+  },[error]);
 
-  const isEmpty = data.length === 0 && !isLoading;
-
+  useEffect(() => {
+    if (!initial.success) {
+      toast.error(initial.error);
+    }
+  }, [initial]);
+  const isEmpty = !isPending && data.length === 0;
+  
   return (
     <>
       <Card className="border-border/70 shadow-sm">
@@ -35,8 +84,8 @@ export function CertificatesPage() {
               />
             </div>
 
+            <FilterSelect items={FILTER_FIELDS} onChange={handleChangeFields}/>
             <Button 
-              onClick={()=>refetch()}
               variant="outline" className="h-11">
               <SlidersHorizontal className="size-4" />
               Фильтры
@@ -58,7 +107,7 @@ export function CertificatesPage() {
         </CardHeader>
 
         <CardContent className="p-0">
-          {isLoading ? (
+          {isPending ? (
             <div className="overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-left text-muted-foreground">

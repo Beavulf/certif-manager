@@ -7,6 +7,14 @@ import { getCertificatesByFindMany } from '@/server/actions/certificate/get-cert
 import { toast } from 'sonner';
 import { queryKeys } from '@/constants/query-keys';
 import deleteCertificateAction from '@/server/actions/certificate/delete-certificate-action';
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
+import type { Certificate } from '@/generated/prisma/client';
+import type { CertificatesWithIncludes } from '@/types/certificate-types';
+import { QUERY_CONFIG } from '@/constants/query-config';
+
+dayjs.extend(customParseFormat)
+// dayjs.locale('ru');
 
 export function useGetCertificates() {
   return useMutation({
@@ -27,37 +35,63 @@ export function useGetCertificates() {
   })
 }
 
-export function useGetCertificatesAll(filter?: string) {
-  const [debouncedFilter] = useDebounce(filter, 400);
-
-  const where = useMemo(() => (
-    debouncedFilter
-      ? {
-          OR: [
-            { serialNumber: { contains: debouncedFilter, mode: 'insensitive' } },
-            { subjectCN: { contains: debouncedFilter, mode: 'insensitive' } },
-            { subjectEmail: { contains: debouncedFilter, mode: 'insensitive' } },
-            { uploadedBy: { contains: debouncedFilter, mode: 'insensitive' } }
-          ]
+// получение списка сертификатов всех либо по фильтру переданному
+const DEFAULT_FIELDS = ['serialNumber', 'subjectCN', 'subjectEmail', 'uploadedBy'];
+export function useGetCertificatesAll(
+  {
+    filter,
+    fields=DEFAULT_FIELDS,
+    initialData
+  }:
+  {
+    filter?: string,
+    fields?: string[],
+    initialData?: Certificate[]
+  }
+) {
+  const [debouncedFilter] = useDebounce(filter?.trim(), 400);
+  const hasFilter = Boolean(debouncedFilter);
+  const where = useMemo(() => {
+    if (!debouncedFilter || fields.length === 0) return {};
+    return {
+      OR: fields.filter(Boolean).map(field => {
+        if (field === 'validFrom' || field === 'validTo') {
+          const parsed = dayjs(debouncedFilter, 'DD.MM.YYYY', true);
+          if (!parsed.isValid()) {
+            return {};
+          }
+          const startOfDay = parsed.startOf('day').toDate();
+          const endOfDay = parsed.endOf('day').toDate();
+          return {
+            [field]: {
+              gte: startOfDay,
+              lte: endOfDay,
+            }
+          };
+        } else {
+          return { [field]: { contains: debouncedFilter, mode: 'insensitive' as const } };
         }
-      : {}
-  ), [debouncedFilter]);
+      }).filter(Boolean)
+    }
+  }, [debouncedFilter, fields]);
   
+  const finalQueryKey = useMemo(() => {
+    if (!debouncedFilter || fields.length === 0) {
+      return queryKeys.certificates.list();
+    }
+    return queryKeys.certificates.list([debouncedFilter, ...fields]);
+  }, [debouncedFilter, fields]);
+
   return useQuery({
-    queryKey: queryKeys.certificates.list(debouncedFilter),
+    queryKey: finalQueryKey,
     queryFn: async () => {
       const result = await getCertificatesByFindMany({ where });
-
-      if (!result.success) {
-        throw result;
-      }
-      return result.data;
+      if (!result.success) { throw result; }
+      return result.data as CertificatesWithIncludes[];
     },
     placeholderData: keepPreviousData,
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 2,
-    gcTime: 1000 * 60 * 10,
-    retry: 1
+    initialData: hasFilter ? undefined : initialData,
+    ...QUERY_CONFIG,
   });
 }
 

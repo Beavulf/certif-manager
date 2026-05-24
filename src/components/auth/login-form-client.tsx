@@ -43,11 +43,18 @@ export function LoginFormClient() {
     const token = await getAuthToken(login, password);
 
     if (!token.success) {
-      toast.error(
-        token.error === 'Unauthorized' ? 'Неверный логин или пароль' : token.error, 
-        { description: 'Ошибка авторизации' }
-      );
-      return;
+      if (token.error === 'Unauthorized') {
+        toast.error('Неверный логин или пароль', { description: 'Ошибка авторизации' });
+        return;
+      }
+      if (token.error?.includes('ETIMEDOUT')) {
+        toast.error('Вышло время ожидание ответа от сервера', { description: 'Ошибка авторизации' });
+        return;
+      }
+      if (token.error?.includes('ECONNREFUSED')) {
+        toast.error('Сервер недоступен', { description: 'Ошибка авторизации' });
+        return;
+      }
     }
 
     router.push('/');

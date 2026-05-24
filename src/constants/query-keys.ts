@@ -1,7 +1,7 @@
 export const queryKeys = {
   certificates: {
     all: ['certificates'] as const,
-    list: (filters?: string) => ['certificates', 'list', filters] as const,
+    list: (filters?: string[]) => ['certificates', 'list', ...(filters ?? [])] as const,
     detail: (id: number) => ['certificates', 'detail', id] as const,
   },
   employees: {

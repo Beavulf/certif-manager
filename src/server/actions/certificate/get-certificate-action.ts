@@ -1,5 +1,6 @@
 'use server'
 
+import type { CertificateFindManyArgs } from "@/generated/prisma/models";
 import { getCertificateSchema } from "@/schemas/get-certificate-schema";
 import { mapErrorToSafeResult } from "@/server/errors/map-error";
 import { certificateService } from "@/server/services/certificate-service";
@@ -57,7 +58,9 @@ export async function getCertificateAction(
   }
 }
 
-export async function getCertificatesByFindMany(args?: Parameters<typeof certificateService.findMany>[0]) {
+export async function getCertificatesByFindMany(
+  args?: CertificateFindManyArgs
+):Promise<SafeResult> {
   try {
     const certificates = await certificateService.findMany(args);
     return {
