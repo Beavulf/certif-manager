@@ -16,12 +16,3 @@ export type CertificatesWithIncludes = Certificate & {
   documents?: Document[],
   notificationLog?: NotificationLog
 }
-
-export type CertificateItem = {
-  id: string;
-  commonName: string;
-  issuer: string;
-  validFrom: string;
-  validTo: string;
-  status: CertStatus;
-};

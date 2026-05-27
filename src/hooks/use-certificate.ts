@@ -7,14 +7,11 @@ import { getCertificatesByFindMany } from '@/server/actions/certificate/get-cert
 import { toast } from 'sonner';
 import { queryKeys } from '@/constants/query-keys';
 import deleteCertificateAction from '@/server/actions/certificate/delete-certificate-action';
-import dayjs from 'dayjs';
-import customParseFormat from 'dayjs/plugin/customParseFormat';
+import dayjs from '@/lib/dayjs-config';
 import type { Certificate } from '@/generated/prisma/client';
 import type { CertificatesWithIncludes } from '@/types/certificate-types';
 import { QUERY_CONFIG } from '@/constants/query-config';
 
-dayjs.extend(customParseFormat)
-// dayjs.locale('ru');
 
 export function useGetCertificates() {
   return useMutation({
@@ -40,7 +37,7 @@ const DEFAULT_FIELDS = ['serialNumber', 'subjectCN', 'subjectEmail', 'uploadedBy
 export function useGetCertificatesAll(
   {
     filter,
-    fields=DEFAULT_FIELDS,
+    fields = DEFAULT_FIELDS,
     initialData
   }:
   {
@@ -51,11 +48,12 @@ export function useGetCertificatesAll(
 ) {
   const [debouncedFilter] = useDebounce(filter?.trim(), 400);
   const hasFilter = Boolean(debouncedFilter);
+  
   const where = useMemo(() => {
     if (!debouncedFilter || fields.length === 0) return {};
     return {
       OR: fields.filter(Boolean).map(field => {
-        if (field === 'validFrom' || field === 'validTo') {
+        if (field === 'validFrom' || field === 'validTo' || field === 'uploadedAt') {
           const parsed = dayjs(debouncedFilter, 'DD.MM.YYYY', true);
           if (!parsed.isValid()) {
             return {};

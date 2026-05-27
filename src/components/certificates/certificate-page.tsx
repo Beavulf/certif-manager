@@ -1,6 +1,6 @@
 'use client';
 
-import { FileBadge2, Plus, Search, SlidersHorizontal } from 'lucide-react';
+import { FileBadge2, Plus, Search } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,16 +8,19 @@ import { Input } from '@/components/ui/input';
 
 import { useGetCertificatesAll } from '@/hooks/use-certificate';
 import { toast } from 'sonner';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { SafeResult } from '@/types/safe-result-types';
 import type { Certificate } from '@/generated/prisma/client';
 import { FilterSelect } from './filter-select';
 
 const FILTER_FIELDS = [
-  {label: 'Кто добавил', value: 'uploadedBy'},
-  {label: 'ФИО', value: 'subjectCn'},
+  {label: 'ФИО', value: 'subjectCN'},
+  {label: 'Серийник', value: 'serialNumber'},
+  {label: 'Email', value: 'subjectEmail'},
   {label: 'Действует с', value: 'validFrom'},
   {label: 'Истекает', value: 'validTo'},
+  {label: 'Кто добавил', value: 'uploadedBy'},
+  {label: 'Загружен', value: 'uploadedAt'},
   {label: 'Статус', value: 'status'},
 ]
 
@@ -27,37 +30,22 @@ export function CertificatesPage(
   const [search, setSearch] = useState('');
   const initialData = initial.success ? initial.data : []
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
-  // console.log(selectedFields);
 
-  const {data=[], isPending, error} = useGetCertificatesAll({filter: search, initialData});
+  const { data=[], isPending, error } = useGetCertificatesAll({
+    filter: search, 
+    initialData, 
+    fields: selectedFields.length > 0 ? selectedFields : undefined
+  });
+
+  console.log();
   
-  const handleChangeFields = (selectedField: string) => {
-    setSelectedFields((prevSelectedFields) => {
-      if (prevSelectedFields.includes(selectedField)) {
-        return prevSelectedFields.filter((field) => field !== selectedField);
-      } else {
-        return [...prevSelectedFields, selectedField];
-      }
-    })
-  }
-  // для фильтрации на клиенте
-  // const filtered = useMemo(()=>{
-  //   return data.filter((item) => {
-  //     return item.subjectCN.toLowerCase().includes(search.toLowerCase())
-  //     || item.validFrom.getDate().toLocaleString().includes(search.toLowerCase())
-  //     || item.validTo.getDate().toString().includes(search.toLowerCase())
-  //     || item.uploadedBy.toLowerCase().includes(search.toLowerCase())
-  //   })
-  // },[data, search])
-  // console.log(filtered);
-    
   useEffect(() => {
     if (error) {
       if (error instanceof Error) {
         toast.error(error.message);
         return;
       }
-      toast.error(error?.error || error);
+      toast.error(typeof error === 'string' ? error : (error as { error?: string })?.error);
     }
   },[error]);
 
@@ -84,12 +72,11 @@ export function CertificatesPage(
               />
             </div>
 
-            <FilterSelect items={FILTER_FIELDS} onChange={handleChangeFields}/>
-            <Button 
-              variant="outline" className="h-11">
-              <SlidersHorizontal className="size-4" />
-              Фильтры
-            </Button>
+            <FilterSelect
+              items={FILTER_FIELDS}
+              value={selectedFields}
+              onValueChange={setSelectedFields}
+            />
           </div>
 
           <Button className="h-11 px-5">
