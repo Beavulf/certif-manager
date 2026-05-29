@@ -1,4 +1,5 @@
-import type { Certificate, Employee, NotificationLog, Prisma, Document, CertStatus } from "@/generated/prisma/client";
+import type { Certificate, Employee, NotificationLog, Prisma, Document } from "@/generated/prisma/client";
+import { Prisma as PrismaBrowser } from "@/generated/prisma/browser";
 
 export interface GetCertificateOptions {
   filter?: Prisma.CertificateWhereInput;
@@ -16,3 +17,5 @@ export type CertificatesWithIncludes = Certificate & {
   documents?: Document[],
   notificationLog?: NotificationLog
 }
+
+export const CertificateFields =  PrismaBrowser.CertificateScalarFieldEnum;

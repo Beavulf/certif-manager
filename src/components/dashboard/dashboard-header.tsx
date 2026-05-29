@@ -27,10 +27,10 @@ export function DashboardHeader({
           ) : null}
         </div>
 
-        <Button className="h-11 px-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer">
+        {/* <Button className="h-11 px-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer">
           <Plus className="size-4" />
           Добавить сертификат
-        </Button>
+        </Button> */}
       </div>
     </header>
   );

@@ -1,15 +1,13 @@
 'use client'
 
 import { Button } from "@/components/ui/button";
-import { useAuthUser } from "@/hooks/localstorageHooks";
 import { useGetCertificates, useGetCertificatesAll } from "@/hooks/use-certificate";
 import { cn } from "@/lib/utils";
 import { getAuthToken } from "@/server/actions/auth-action";
 import uploadCertificateToEmployeeAction from "@/server/actions/certificate/upload-certificate-action";
 
 export default function MyForm() {
-  const {authUser, getUsername} = useAuthUser();
-  const {data: allCertData} = useGetCertificatesAll();
+  // const {data: allCertData} = useGetCertificatesAll();
   const {data, mutate, isPending} = useGetCertificates();
   console.log(allCertData);
   
@@ -34,20 +32,6 @@ export default function MyForm() {
       console.log(data);
     }
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      const adUsername = getUsername();
-      const form = e.currentTarget;
-      const formData = new FormData(form);
-      if (!adUsername) {
-        return;
-      }
-      const {success, data, error, fieldErrors} = await uploadCertificateToEmployeeAction(formData, adUsername)
-      console.log(success);
-      console.log(data);
-      console.log(error);
-      console.log(fieldErrors);
-    };
 
     const handleCreateEmployee = async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
@@ -153,12 +137,6 @@ export default function MyForm() {
               Получить
             </Button>
         </form>
-        <button
-          onClick={handleAuth}
-          className="w-full mt-4 bg-amber-400 text-white font-semibold py-2 rounded shadow hover:bg-amber-500 transition cursor-pointer"
-        >
-          Авторизоваться
-        </button>
       </div>
     );
   }

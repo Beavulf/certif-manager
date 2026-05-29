@@ -5,13 +5,13 @@ import { mapErrorToSafeResult } from "@/server/errors/map-error";
 import { auditlogService } from "@/server/services/auditlog-service";
 import { certificateService } from "@/server/services/certificate-service";
 import type { SafeResult } from "@/types/safe-result-types";
-import { getSessionUser } from "@/lib/session-helper";
+import { requireAuth } from "@/lib/session-helper";
+import type { Certificate } from "@/generated/prisma/browser";
 
 export default async function uploadCertificateToEmployeeAction(
   formData: FormData,
-  adUsername: string
-):Promise<SafeResult> {
-  const session = await getSessionUser();
+):Promise<SafeResult<Certificate | unknown>> {
+  const session = await requireAuth();
   const username = session?.username;
 
   if (!username) {
@@ -24,9 +24,9 @@ export default async function uploadCertificateToEmployeeAction(
   }
   
   const parsed = uploadCertificateSchema.safeParse({
-    employeeId: formData.get("employeeId"),
+    employeeId: formData.get("employeeId") || undefined,
     file: formData.get("file"),
-    notes: formData.get("notes")
+    notes: formData.get("notes") || undefined
   })
   
   if (!parsed.success) {
@@ -41,15 +41,15 @@ export default async function uploadCertificateToEmployeeAction(
   try {
     const { employeeId, file, notes } = parsed.data;
     const buffer = Buffer.from(await file.arrayBuffer())
-  
-    const certificate = await certificateService.create(
+    
+    const certificate = await certificateService.create({
       employeeId,
-      file.name,
-      username,
-      file.type,
-      buffer,
-      notes
-    )
+      fileName: file.name,
+      uploadedBy: username,
+      fileType: file.type,
+      fileBuffer: buffer,
+      notes: notes
+    })
   
     await auditlogService.log({
       action: 'uploadCert',

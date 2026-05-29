@@ -18,15 +18,29 @@ export const certificateService = {
   },
 
   async create(
-    employeeId: string,
-    fileName: string,
-    uploadedBy: string,
-    fileType: string,
-    fileBuffer: Buffer,
-    notes?: string,
+    {
+      employeeId,
+      fileName,
+      uploadedBy,
+      fileType,
+      fileBuffer,
+      notes,
+    }:
+    {
+      fileName: string,
+      uploadedBy: string,
+      fileType: string,
+      fileBuffer: Buffer,
+      employeeId?: string,
+      notes?: string,
+    }
   ):Promise<Certificate>
    {
-    const employee = await employeeService.findByIdOrThrow(employeeId);
+    let employee = undefined;
+    if (employeeId) {
+      employee = await employeeService.findByIdOrThrow(employeeId);
+    }
+    
     const parsedCert = parseCert(fileBuffer, fileName);
 
     if (!parsedCert.subjectCN || parsedCert.subjectCN === 'Unknown') {
@@ -36,14 +50,14 @@ export const certificateService = {
     const isExpired = new Date(parsedCert.validTo) < new Date();
     
     await this.ensureUniqueSerialNumber(parsedCert.serialNumber);
-    const key = generateCertKey(employee.id, fileName);
+    const key = generateCertKey(employee ? employee.id : new Date().getTime().toString(), fileName);
     await uploadFile(key, fileBuffer, fileType || 'application/octet-stream')
     
     return await certificateRepository.create({
       serialNumber: parsedCert.serialNumber,
       thumbprint: parsedCert.thumbprint,
       subjectCN: parsedCert.subjectCN,
-      subjectEmail: employee.email,
+      subjectEmail: employee && employee.email,
       validFrom: parsedCert.validFrom,
       validTo: parsedCert.validTo,
       certType: parsedCert.certType,
@@ -51,11 +65,7 @@ export const certificateService = {
       uploadedBy: uploadedBy,
       status: isExpired ? "expired" : "active",
       notes: notes,
-      employee: {
-        connect: {
-          id: employee.id
-        }
-      }
+      ...(employee && { employee: { connect: { id: employee.id } } })
     });
   },
 

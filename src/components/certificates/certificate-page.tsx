@@ -6,22 +6,28 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
-import { useGetCertificatesAll } from '@/hooks/use-certificate';
+import { useDeleteCertificate, useGetCertificatesAll } from '@/hooks/use-certificate';
 import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 import type { SafeResult } from '@/types/safe-result-types';
 import type { Certificate } from '@/generated/prisma/client';
 import { FilterSelect } from './filter-select';
+import { CertificateFields } from '@/types/certificate-types';
+import { UploadDialog } from './upload-dialog';
 
 const FILTER_FIELDS = [
-  {label: 'ФИО', value: 'subjectCN'},
-  {label: 'Серийник', value: 'serialNumber'},
-  {label: 'Email', value: 'subjectEmail'},
-  {label: 'Действует с', value: 'validFrom'},
-  {label: 'Истекает', value: 'validTo'},
-  {label: 'Кто добавил', value: 'uploadedBy'},
-  {label: 'Загружен', value: 'uploadedAt'},
-  {label: 'Статус', value: 'status'},
+  {label: 'ФИО', value: CertificateFields.subjectCN},
+  {label: 'Серийник', value: CertificateFields.serialNumber},
+  {label: 'Email', value: CertificateFields.subjectEmail},
+  {label: 'Действует с', value: CertificateFields.validFrom},
+  {label: 'Истекает', value: CertificateFields.validTo},
+  {label: 'Кто добавил', value: CertificateFields.uploadedBy},
+  {label: 'Загружен', value: CertificateFields.uploadedAt},
+  {label: 'Отпечаток', value: CertificateFields.thumbprint},
+  {label: 'Издатель', value: CertificateFields.issuer},
+  {label: 'Ключ загрузки', value: CertificateFields.fileKey},
+  {label: 'Примечание', value: CertificateFields.notes},
+  {label: 'Статус', value: CertificateFields.status},
 ]
 
 export function CertificatesPage(
@@ -37,8 +43,20 @@ export function CertificatesPage(
     fields: selectedFields.length > 0 ? selectedFields : undefined
   });
 
-  console.log();
-  
+  const {mutateAsync, isPending: isDeleting} = useDeleteCertificate()
+
+  const handleDeleteCertificate = async (id: string) => {
+    try {
+      await mutateAsync(id)
+      toast.success('Сертификат успешно удален');
+    } catch (error) {
+      if (error instanceof Error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.error(error.error ?? 'Не удалось удалить сертификат')
+    }
+  }
   useEffect(() => {
     if (error) {
       if (error instanceof Error) {
@@ -54,6 +72,7 @@ export function CertificatesPage(
       toast.error(initial.error);
     }
   }, [initial]);
+
   const isEmpty = !isPending && data.length === 0;
   
   return (
@@ -67,7 +86,7 @@ export function CertificatesPage(
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 type="text"
-                placeholder="Поиск по названию, issuer или домену"
+                placeholder="Поиск по ФИО, серийнику и остальным полям"
                 className="h-11 pl-9"
               />
             </div>
@@ -78,11 +97,7 @@ export function CertificatesPage(
               onValueChange={setSelectedFields}
             />
           </div>
-
-          <Button className="h-11 px-5">
-            <Plus className="size-4" />
-            Добавить сертификат
-          </Button>
+          <UploadDialog/>
         </CardContent>
       </Card>
 
@@ -163,7 +178,7 @@ export function CertificatesPage(
                 <thead className="bg-muted/50 text-left text-muted-foreground">
                   <tr className="border-b border-border/70">
                     <th className="px-6 py-4 font-medium">Название</th>
-                    <th className="px-6 py-4 font-medium">Issuer</th>
+                    <th className="px-6 py-4 font-medium">Serial</th>
                     <th className="px-6 py-4 font-medium">Действует с</th>
                     <th className="px-6 py-4 font-medium">Истекает</th>
                     <th className="px-6 py-4 font-medium">Статус</th>
@@ -180,7 +195,7 @@ export function CertificatesPage(
                         {item.subjectCN}
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
-                        {item.issuer}
+                        {item.serialNumber}
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
                         {new Date(item.validFrom).toLocaleDateString()}
@@ -192,6 +207,13 @@ export function CertificatesPage(
                         <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
                           {item.status}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-muted-foreground">
+                        <Button 
+                          disabled={isDeleting}
+                          className='bg-accent text-foreground size-0' 
+                          onClick={()=>handleDeleteCertificate(item.id)}
+                        >X</Button>
                       </td>
                     </tr>
                   )):[]}

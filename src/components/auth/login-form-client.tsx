@@ -41,7 +41,7 @@ export function LoginFormClient() {
     const password = String(formData.get('password'));
 
     const token = await getAuthToken(login, password);
-
+    
     if (!token.success) {
       if (token.error === 'Unauthorized') {
         toast.error('Неверный логин или пароль', { description: 'Ошибка авторизации' });
@@ -55,6 +55,8 @@ export function LoginFormClient() {
         toast.error('Сервер недоступен', { description: 'Ошибка авторизации' });
         return;
       }
+      toast.error(token.error, { description: token.code });
+      return;
     }
 
     router.push('/');

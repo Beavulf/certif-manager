@@ -68,7 +68,7 @@ model User {
 
 model Certificate {
   id            String        @id @default(uuid())
-  employeeId    String
+  employeeId    String?
   serialNumber  String     @unique
   thumbprint    String?    @unique // уникальный хэш сертификата
   subjectCN     String
@@ -83,7 +83,7 @@ model Certificate {
   uploadedBy    String     // adUsername
   uploadedAt    DateTime   @default(now())
 
-  employee      Employee          @relation(fields: [employeeId], references: [id])
+  employee      Employee?          @relation(fields: [employeeId], references: [id])
   documents     Document[]
   notifications NotificationLog[]
 
@@ -116,7 +116,7 @@ model NotificationLog {
   status           String   @default("sent") // sent | failed
   errorMessage     String?
 
-  certificate      Certificate @relation(fields: [certificateId], references: [id])
+  certificate      Certificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
 
   @@index([certificateId])
 }

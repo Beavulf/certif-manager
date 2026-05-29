@@ -4,36 +4,45 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useDebounce } from 'use-debounce';
 import { useMemo } from 'react';
 import { getCertificatesByFindMany } from '@/server/actions/certificate/get-certificate-action';
-import { toast } from 'sonner';
 import { queryKeys } from '@/constants/query-keys';
 import deleteCertificateAction from '@/server/actions/certificate/delete-certificate-action';
 import dayjs from '@/lib/dayjs-config';
 import type { Certificate } from '@/generated/prisma/client';
 import type { CertificatesWithIncludes } from '@/types/certificate-types';
 import { QUERY_CONFIG } from '@/constants/query-config';
+import { CertificateFields } from '@/types/certificate-types';
+import uploadCertificateToEmployeeAction from '@/server/actions/certificate/upload-certificate-action';
 
 
-export function useGetCertificates() {
+export function useUploadCertificate(invalidate: boolean = true) {
+  const queryClient = useQueryClient()
+
   return useMutation({
-    mutationFn: async (dataForm) => {
-      const result = await getCertificatesByFindMany(dataForm);
+    mutationFn: async (dataForm: FormData) => {
+      const result = await uploadCertificateToEmployeeAction(dataForm);
       if (!result.success) {
-        throw result
+        throw result;
       }
-      return result.data
+      return result;
     },
-    onSuccess: (data) => {
-      toast.success('Сертификат успешно загружен')
-      // queryClient.invalidateQueries({ queryKey: ['certificates'] })
+    onMutate: async (data) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.certificates.all });
+      return data;
     },
-    onError: (data) => {
-      toast.error(data.error)
-    }
+    onSettled: async () => {
+      if (invalidate) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.certificates.all });
+      }
+    },
+    retry: false,
   })
 }
 
 // получение списка сертификатов всех либо по фильтру переданному
-const DEFAULT_FIELDS = ['serialNumber', 'subjectCN', 'subjectEmail', 'uploadedBy'];
+const WITHOUT_FIELDS = [CertificateFields.id, CertificateFields.status, CertificateFields.certType, CertificateFields.employeeId]
+const DEFAULT_FIELDS = Object.values(CertificateFields).filter(field=>
+  !WITHOUT_FIELDS.includes(field)
+);
 export function useGetCertificatesAll(
   {
     filter,
@@ -99,15 +108,11 @@ export function useDeleteCertificate() {
   return useMutation({
     mutationFn: async (id: string) => {
       const result = await deleteCertificateAction(id)
-      if (!result.success) throw result  // бросаем SafeResult
-      return result.data
+      if (!result.success) throw result;
+      return result.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.certificates.all })
-      toast.success('Сертификат удалён')
-    },
-    onError: (error: { error: string; code?: string }) => {
-      toast.error(error?.error ?? 'Ошибка при удалении')
     },
   })
 }

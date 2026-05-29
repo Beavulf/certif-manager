@@ -2,11 +2,12 @@ export const queryKeys = {
   certificates: {
     all: ['certificates'] as const,
     list: (filters?: string[]) => ['certificates', 'list', ...(filters ?? [])] as const,
-    detail: (id: number) => ['certificates', 'detail', id] as const,
+    detail: (id: string) => ['certificates', 'detail', id] as const,
   },
   employees: {
     all: ['employees'] as const,
-    detail: (id: number) => ['employees', 'detail', id] as const,
+    list: () => ['employees', 'list'] as const,
+    detail: (id: string) => ['employees', 'detail', id] as const,
   },
   notifications: {
     all: ['notifications'] as const,

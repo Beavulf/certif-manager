@@ -15,8 +15,8 @@ export function mapErrorToSafeResult(error: unknown):SafeResult {
   console.error('[Unexpected error]',error);
   return {
     success: false,
-    error: `Внутренняя ошибка сервера: ${error}`,
-    code: "INTERNAL_ERROR",
+    error: `Внутренняя ошибка сервера(${error?.cause?.code}): ${error}`,
+    code: 'INTERNAL_ERROR',
   }
 }
 
