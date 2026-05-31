@@ -2,7 +2,7 @@ import { AppError } from "@/server/errors/app-error";
 import type { SafeResult } from "@/types/safe-result-types";
 import { NextResponse } from "next/server";
 
-export function mapErrorToSafeResult(error: unknown):SafeResult {
+export function mapErrorToSafeResult<T = unknown>(error: unknown):SafeResult<T> {
 
   if (error instanceof AppError) {
     return {

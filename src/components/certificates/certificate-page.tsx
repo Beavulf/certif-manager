@@ -13,7 +13,7 @@ import type { SafeResult } from '@/types/safe-result-types';
 import type { Certificate } from '@/generated/prisma/client';
 import { FilterSelect } from './filter-select';
 import { CertificateFields } from '@/types/certificate-types';
-import { UploadDialog } from './upload-dialog';
+import { UploadDialog } from './upload-dialog/upload-dialog';
 
 const FILTER_FIELDS = [
   {label: 'ФИО', value: CertificateFields.subjectCN},
@@ -90,7 +90,6 @@ export function CertificatesPage(
                 className="h-11 pl-9"
               />
             </div>
-
             <FilterSelect
               items={FILTER_FIELDS}
               value={selectedFields}

@@ -92,7 +92,7 @@ export function useGetCertificatesAll(
   return useQuery({
     queryKey: finalQueryKey,
     queryFn: async () => {
-      const result = await getCertificatesByFindMany({ where });
+      const result = await getCertificatesByFindMany({ where, orderBy: {uploadedAt: 'desc'} });
       if (!result.success) { throw result; }
       return result.data as CertificatesWithIncludes[];
     },

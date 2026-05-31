@@ -31,7 +31,7 @@ function employeeSubtitle(employee: {
   const parts = [
     employee.department,
     employee.adUsername,
-    employee.email,
+    // employee.email,
   ].filter(Boolean)
   return parts.join(' · ')
 }

@@ -17,7 +17,7 @@ export const employeeService = {
   async create(data: Prisma.EmployeeCreateInput) {
     const { adUsername, email, fullName } = data;
     if (!email || !fullName || !adUsername) {
-      throw new BadRequestError("Отсутствуют обязательные поля")
+      throw new BadRequestError("Отсутствуют обязательные поля: email, fullName, adUsername")
     }
 
     const employee = await employeeRepository.findByAdUsername(adUsername);

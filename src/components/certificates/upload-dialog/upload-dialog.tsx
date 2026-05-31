@@ -15,7 +15,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { EmployeeSelect } from '@/components/certificates/employee-select'
+import { EmployeeSelect } from '@/components/certificates/upload-dialog/employee-select'
+import {
+  getUploadErrorMessage,
+  UploadFailuresDialog,
+  type UploadFailure,
+} from '@/components/certificates/upload-dialog/upload-failures-dialog'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -23,6 +28,9 @@ import { UPLOAD_FILE_CONFIG as fileConfig } from '@/constants/upload-config'
 import { useUploadCertificate } from '@/hooks/use-certificate'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/constants/query-keys'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import { uploadCertificateAndSyncADUserAction } from '@/server/actions/certificate/upload-certificate-action'
 
 function isCertificateFile(file: File): boolean {
   const lower = file.name.toLowerCase()
@@ -58,12 +66,15 @@ export function UploadDialog() {
   const [files, setFiles] = useState<File[]>([])
   const [employeeId, setEmployeeId] = useState('')
   const [notes, setNotes] = useState('')
+  const [uploadFailures, setUploadFailures] = useState<UploadFailure[]>([])
+  const [createEmployee, setCreateEmployee] = useState(false)
 
   const resetForm = useCallback(() => {
     setFiles([])
     setEmployeeId('')
     setNotes('')
     setIsDragging(false)
+    setUploadFailures([])
   }, [])
 
   const addFiles = useCallback((incoming: FileList | File[]) => {
@@ -123,7 +134,7 @@ export function UploadDialog() {
     },
     [addFiles]
   )
-
+  
   const handleUpload = async () => {
     const trimmedEmployeeId = employeeId.trim()
 
@@ -133,7 +144,7 @@ export function UploadDialog() {
     }
 
     let successCount = 0
-    const failed: string[] = []
+    const failed: UploadFailure[] = []
     const remainingFiles: File[] = []
 
     for (const file of files) {
@@ -147,23 +158,27 @@ export function UploadDialog() {
       }
 
       try {
-        await uploadCertificates(formData);
+        if (createEmployee && trimmedEmployeeId === '' && employeeId == '') {
+          const result = await uploadCertificateAndSyncADUserAction({formData});
+          if (!result.success) {
+            throw result;
+          }
+        } else {
+          const result = await uploadCertificates(formData);
+          if (!result.success) {
+            throw result;
+          }
+        }
         queryClient.invalidateQueries({queryKey: queryKeys.certificates.all});
+        if (createEmployee) {
+          queryClient.invalidateQueries({queryKey: queryKeys.employees.all});
+        }
         successCount += 1;
       } catch (error) {
-        if (error instanceof Error) {
-          failed.push(`${file.name}: ${error.message}`)
-          remainingFiles.push(file)
-          continue
-        }
-        const fieldError = Object.values(error.fieldErrors ?? {});
-        const message =
-          fieldError.length > 0 ?
-          fieldError[0] :
-          (error.error ??
-          'Не удалось загрузить файл')
-          
-        failed.push(`${file.name}: ${message}`)
+        failed.push({
+          fileName: file.name,
+          error: getUploadErrorMessage(error),
+        })
         remainingFiles.push(file)
       }
     }
@@ -176,8 +191,13 @@ export function UploadDialog() {
       toast.success(label)
     }
 
-    for (const msg of failed) {
-      toast.error(msg)
+    if (failed.length > 0) {
+      setUploadFailures(failed)
+      toast.error(
+        failed.length === 1
+          ? 'Не удалось загрузить 1 сертификат'
+          : `Не удалось загрузить сертификатов: ${failed.length}`
+      )
     }
 
     if (successCount === files.length) {
@@ -208,8 +228,7 @@ export function UploadDialog() {
         <DialogHeader>
           <DialogTitle>Загрузка сертификатов</DialogTitle>
           <DialogDescription>
-            Перетащите файлы в область ниже или выберите их на диске. Поддерживаются
-            форматы .cer и .p7b, до 10 МБ каждый.
+            Перетащите файлы в область ниже или выберите их на диске.
           </DialogDescription>
         </DialogHeader>
 
@@ -226,6 +245,27 @@ export function UploadDialog() {
               Выберите сотрудника или оставьте «Без сотрудника», чтобы загрузить
               сертификат без привязки.
             </FieldDescription>
+          </Field>
+
+          <Field orientation="horizontal">
+            <Label 
+              htmlFor="create-employee" 
+              className={cn("flex flex-col gap-1 w-full", isUploading || employeeId !== '' && "opacity-50")}>
+              <p className="self-start">Создавать сотрудника на каждый сертификат?</p>
+              <p className="text-xs text-muted-foreground">
+                Если выбрано, то при загрузке сертификата, если сотрудник не найден, 
+                то будет создан новый сотрудник с информацией подтягивающейся из AD. 
+                Либо если сотрудник найден, но нет привязки к сертификату, то будет 
+                привязан к сертификату.
+              </p>
+            </Label>
+            <Checkbox
+              disabled={isUploading || employeeId !== ''}
+              className={cn("mt-1 cursor-pointer size-6 ml-auto", isUploading || employeeId !== '' && "cursor-not-allowed")}
+              id="create-employee"
+              checked={createEmployee}
+              onCheckedChange={setCreateEmployee}
+            />
           </Field>
 
           <Field>
@@ -324,6 +364,9 @@ export function UploadDialog() {
                 </li>
               ))}
             </ul>
+          )}
+          {uploadFailures.length > 0 && (
+            <UploadFailuresDialog failures={uploadFailures} />
           )}
         </FieldGroup>
 
