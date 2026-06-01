@@ -2,6 +2,7 @@
 
 import type { Certificate } from "@/generated/prisma/browser";
 import { mapErrorToSafeResult } from "@/server/errors/map-error";
+import { auditlogService } from "@/server/services/auditlog-service";
 import { certificateService } from "@/server/services/certificate-service";
 import type { SafeResult } from "@/types/safe-result-types";
 import {z} from 'zod'
@@ -14,7 +15,7 @@ const deleteCertificateSchema = z.object({
 
 export default async function deleteCertificateAction(
   id: string
-):Promise<SafeResult<Certificate | unknown>> {
+):Promise<SafeResult<Certificate>> {
   const parsed = deleteCertificateSchema.safeParse({ id })
   if (!parsed.success) {
     return {
@@ -25,12 +26,19 @@ export default async function deleteCertificateAction(
   }
   
   try {
-    const certificate = await certificateService.deleteById(id);
+    const { deleted: certificate, deletedDocs } = await certificateService.deleteById(id);
+    await auditlogService.log({
+      action: 'deleteCert',
+      entityType: 'certificate',
+      entityId: certificate.id,
+      displayName: `Сертификат удален: ${certificate.serialNumber} - ${certificate.subjectCN}. Документы удалены: ${deletedDocs.count} шт.`,
+      adUsername: certificate.uploadedBy
+    })
     return {
       success: true,
       data: certificate
     }
   } catch(error) {
-    return mapErrorToSafeResult(error)
+    return mapErrorToSafeResult(error);
   }
 }

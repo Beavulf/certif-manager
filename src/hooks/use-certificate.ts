@@ -11,14 +11,46 @@ import type { Certificate } from '@/generated/prisma/client';
 import type { CertificatesWithIncludes } from '@/types/certificate-types';
 import { QUERY_CONFIG } from '@/constants/query-config';
 import { CertificateFields } from '@/types/certificate-types';
-import uploadCertificateToEmployeeAction from '@/server/actions/certificate/upload-certificate-action';
+import uploadCertificateToEmployeeAction, { uploadCertificateAndSyncADUserAction } from '@/server/actions/certificate/upload-certificate-action';
 
+/**
+ * Хук для загрузки сертификата сотрудника.
+ *
+ * @param {Object} params - Опции работы хука.
+ * @param {boolean} [params.invalidate=true] - Инвалидировать кэш сертификатов после загрузки.
+ * @param {boolean} [params.invalidateEmployee=false] - Инвалидировать кэш сотрудников после загрузки.
+ *
+ * @returns {UseMutationResult} - Объект мутации для загрузки сертификата (isPending, mutateAsync и др.).
+ *
+ * Пример:
+ * const { mutateAsync, isPending } = useUploadCertificate({ invalidateEmployee: true });
+ *
+ * Детали:
+ * - Если в dataForm.uploadSyncEmployee === true, используется uploadCertificateAndSyncADUserAction
+ *   (загрузка сертификата с авто-созданием/синхронизацией сотрудника в AD).
+ * - После успешной загрузки, если invalidate/invalidateEmployee === true, кэши сертификатов/сотрудников инвалидируются.
+ * - В случае ошибки выбрасывается исключение с деталями ошибки.
+ * - retry: false — повторных попыток по умолчанию нет.
+ */
 
-export function useUploadCertificate(invalidate: boolean = true) {
+export function useUploadCertificate(
+  { invalidate = true  }: 
+  { invalidate?: boolean }
+) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (dataForm: FormData) => {
+    mutationFn: async (
+      {dataForm, uploadSyncEmployee = false}: 
+      {dataForm: FormData, uploadSyncEmployee?: boolean}
+    ) => {
+      if (uploadSyncEmployee) {
+        const result = await uploadCertificateAndSyncADUserAction({formData: dataForm});
+        if (!result.success) {
+          throw result;
+        }
+        return result;
+      }
       const result = await uploadCertificateToEmployeeAction(dataForm);
       if (!result.success) {
         throw result;
@@ -27,11 +59,13 @@ export function useUploadCertificate(invalidate: boolean = true) {
     },
     onMutate: async (data) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.certificates.all });
+      await queryClient.cancelQueries({ queryKey: queryKeys.employees.all });
       return data;
     },
     onSettled: async () => {
       if (invalidate) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.certificates.all });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
       }
     },
     retry: false,

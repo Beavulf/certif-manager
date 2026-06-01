@@ -3,7 +3,7 @@ import { ShieldCheck } from 'lucide-react';
 
 import { NavLinks } from '@/components/dashboard/nav-links';
 import { LogOut } from 'lucide-react';
-import { logout } from '@/server/actions/graphql-action';
+import { logout } from '@/server/services/graphql-service';
 
 type AppSidebarProps = {
   username: string;

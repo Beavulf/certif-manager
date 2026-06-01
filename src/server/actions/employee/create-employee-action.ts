@@ -1,10 +1,14 @@
+'use server'
+
+import type { Employee } from "@/generated/prisma/client";
 import { createEmployeeSchema } from "@/schemas/employee-schema";
 import { mapErrorToSafeResult } from "@/server/errors/map-error";
 import { employeeService } from "@/server/services/employee-service";
+import type { SafeResult } from "@/types/safe-result-types";
 
 export async function createEmployeeAction(
   formData: FormData,
-) {
+):Promise<SafeResult<Employee>> {
   const parsed = createEmployeeSchema.safeParse({
     fullName: formData.get("fullName"),
     email: formData.get("email"),
@@ -23,7 +27,7 @@ export async function createEmployeeAction(
   }
 
   try {
-    const employee = employeeService.create(parsed.data)
+    const employee = await employeeService.create(parsed.data)
     return {
       success: true,
       data: employee

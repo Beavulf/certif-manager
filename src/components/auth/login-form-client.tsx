@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SubmitButton } from './submit-button';
-import { getAuthToken } from '@/server/actions/graphql-action';
+import { getAuthToken } from '@/server/services/graphql-service';
 import { useEffect, useState } from 'react';
 import { AdminHoverCard } from './login-hover-client';
 

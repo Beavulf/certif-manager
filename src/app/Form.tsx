@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { useGetCertificates, useGetCertificatesAll } from "@/hooks/use-certificate";
 import { cn } from "@/lib/utils";
-import { getAuthToken } from "@/server/actions/graphql-action";
+import { getAuthToken } from "@/server/services/graphql-service";
 import uploadCertificateToEmployeeAction from "@/server/actions/certificate/upload-certificate-action";
 
 export default function MyForm() {

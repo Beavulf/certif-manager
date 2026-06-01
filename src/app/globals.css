@@ -30,6 +30,10 @@
   --ring: 39 96% 52%;
 
   --radius: 1rem;
+
+  --scrollbar-track: var(--muted);
+  --scrollbar-thumb: var(--muted-foreground);
+  --scrollbar-thumb-hover: var(--primary);
 }
 
 .dark {
@@ -90,6 +94,8 @@
 
 * {
   border-color: hsl(var(--border));
+  scrollbar-color: hsl(var(--scrollbar-thumb) / 0.45) hsl(var(--scrollbar-track));
+  scrollbar-width: thin;
 }
 
 html,
@@ -100,4 +106,27 @@ body {
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: hsl(var(--scrollbar-track));
+}
+
+*::-webkit-scrollbar-thumb {
+  background: hsl(var(--scrollbar-thumb) / 0.45);
+  border: 2px solid hsl(var(--scrollbar-track));
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--scrollbar-thumb-hover));
+}
+
+*::-webkit-scrollbar-corner {
+  background: hsl(var(--scrollbar-track));
 }

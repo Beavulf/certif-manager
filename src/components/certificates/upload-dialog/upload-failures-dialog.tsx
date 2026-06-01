@@ -93,7 +93,7 @@ export function UploadFailuresDialog({ failures }: UploadFailuresDialogProps) {
                 <FileBadge2 className="mt-0.5 size-4 shrink-0 text-destructive" />
                 <div className="min-w-0 flex-1 space-y-0">
                   <p className="truncate font-medium">{item.fileName}</p>
-                  <pre className="text-destructive">{item.error}</pre>
+                  <pre className="text-destructive text-wrap">{item.error}</pre>
                 </div>
               </li>
             ))}

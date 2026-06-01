@@ -25,7 +25,6 @@ const FILTER_FIELDS = [
   {label: 'Загружен', value: CertificateFields.uploadedAt},
   {label: 'Отпечаток', value: CertificateFields.thumbprint},
   {label: 'Издатель', value: CertificateFields.issuer},
-  {label: 'Ключ загрузки', value: CertificateFields.fileKey},
   {label: 'Примечание', value: CertificateFields.notes},
   {label: 'Статус', value: CertificateFields.status},
 ]
@@ -37,7 +36,7 @@ export function CertificatesPage(
   const initialData = initial.success ? initial.data : []
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
 
-  const { data=[], isPending, error } = useGetCertificatesAll({
+  const { data=[], isPending, error, refetch } = useGetCertificatesAll({
     filter: search, 
     initialData, 
     fields: selectedFields.length > 0 ? selectedFields : undefined
@@ -108,42 +107,7 @@ export function CertificatesPage(
         </CardHeader>
 
         <CardContent className="p-0">
-          {isPending ? (
-            <div className="overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left text-muted-foreground">
-                  <tr className="border-b border-border/70">
-                    <th className="px-6 py-4 font-medium">Название</th>
-                    <th className="px-6 py-4 font-medium">Issuer</th>
-                    <th className="px-6 py-4 font-medium">Действует с</th>
-                    <th className="px-6 py-4 font-medium">Истекает</th>
-                    <th className="px-6 py-4 font-medium">Статус</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i} className="border-b border-border/60">
-                      <td className="px-6 py-4">
-                        <div className="h-4 w-32 bg-muted animate-pulse rounded"></div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="h-4 w-28 bg-muted animate-pulse rounded"></div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="h-4 w-24 bg-muted animate-pulse rounded"></div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="h-4 w-24 bg-muted animate-pulse rounded"></div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="h-5 w-20 bg-muted animate-pulse rounded-full"></div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : isEmpty ? (
+          {isEmpty ? (
             <div className="px-6 py-14">
               <div className="rounded-2xl border border-dashed border-border bg-accent/40 px-6 py-12 text-center">
                 <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700">
@@ -160,12 +124,12 @@ export function CertificatesPage(
                 </p>
 
                 <div className="mt-5 flex items-center justify-center gap-3">
-                  <Button>
-                    <Plus className="size-4" />
-                    Добавить первый сертификат
-                  </Button>
-
-                  <Button variant="outline">
+                  <Button 
+                    variant="outline" 
+                    onClick={()=>refetch()} 
+                    className='cursor-pointer'
+                    disabled={isPending}
+                  >
                     Обновить список
                   </Button>
                 </div>

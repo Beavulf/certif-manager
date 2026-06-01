@@ -63,6 +63,14 @@ export function createDocumentRepository(db: DbClient = prisma) {
       } catch (error) {
         handlePrismaError(error);
       }
+    },
+
+    async deleteMany(args: Prisma.DocumentDeleteManyArgs): Promise<Prisma.BatchPayload> {
+      try {
+        return await db.document.deleteMany(args);
+      } catch (error) {
+        handlePrismaError(error);
+      }
     }
   } as const;
 }

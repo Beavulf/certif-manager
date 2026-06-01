@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
-import { FileBadge2, Loader2, Upload, X } from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -30,17 +30,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/constants/query-keys'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { uploadCertificateAndSyncADUserAction } from '@/server/actions/certificate/upload-certificate-action'
+import { UploadInput } from './upload-input'
+import { UploadFileListItem } from './upload-file-list-item'
 
 function isCertificateFile(file: File): boolean {
   const lower = file.name.toLowerCase()
   return fileConfig.ARR_CERT_TYPE.some((ext) => lower.endsWith(ext))
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function validateFile(file: File): string | null {
@@ -57,23 +52,25 @@ function fileKey(file: File): string {
 }
 
 export function UploadDialog() {
-  const inputRef = useRef<HTMLInputElement>(null)
   const queryClient = useQueryClient();
-  const {mutateAsync: uploadCertificates, isPending: isUploading} = useUploadCertificate(false);
+  // invalidate: false - не инвалидировать кэш сертификатов
+  const {mutateAsync: uploadCertificates, isPending: isUploading} = useUploadCertificate({
+    invalidate: false
+  });
 
-  const [open, setOpen] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
-  const [files, setFiles] = useState<File[]>([])
-  const [employeeId, setEmployeeId] = useState('')
-  const [notes, setNotes] = useState('')
-  const [uploadFailures, setUploadFailures] = useState<UploadFailure[]>([])
-  const [createEmployee, setCreateEmployee] = useState(false)
+  const [open, setOpen] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [employeeId, setEmployeeId] = useState('');
+  const [notes, setNotes] = useState('');
+  const [uploadFailures, setUploadFailures] = useState<UploadFailure[]>([]);
+  const [createEmployee, setCreateEmployee] = useState(true);
+  const [successCount, setSuccessCount] = useState(0);
 
   const resetForm = useCallback(() => {
     setFiles([])
     setEmployeeId('')
     setNotes('')
-    setIsDragging(false)
+    setSuccessCount(0);
     setUploadFailures([])
   }, [])
 
@@ -110,42 +107,18 @@ export function UploadDialog() {
   const removeFile = useCallback((index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index))
   }, [])
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(true)
-  }, [])
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(false)
-  }, [])
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      setIsDragging(false)
-      if (e.dataTransfer.files?.length) {
-        addFiles(e.dataTransfer.files)
-      }
-    },
-    [addFiles]
-  )
   
   const handleUpload = async () => {
     const trimmedEmployeeId = employeeId.trim()
-
     if (files.length === 0) {
       toast.error('Добавьте хотя бы один файл сертификата')
       return
     }
 
-    let successCount = 0
     const failed: UploadFailure[] = []
     const remainingFiles: File[] = []
+    let uploadedCount = 0
+    setSuccessCount(0)
 
     for (const file of files) {
       const formData = new FormData()
@@ -159,12 +132,12 @@ export function UploadDialog() {
 
       try {
         if (createEmployee && trimmedEmployeeId === '' && employeeId == '') {
-          const result = await uploadCertificateAndSyncADUserAction({formData});
+          const result = await uploadCertificates({dataForm: formData, uploadSyncEmployee: true});
           if (!result.success) {
             throw result;
           }
         } else {
-          const result = await uploadCertificates(formData);
+          const result = await uploadCertificates({dataForm: formData});
           if (!result.success) {
             throw result;
           }
@@ -173,7 +146,8 @@ export function UploadDialog() {
         if (createEmployee) {
           queryClient.invalidateQueries({queryKey: queryKeys.employees.all});
         }
-        successCount += 1;
+        uploadedCount += 1
+        setSuccessCount(uploadedCount)
       } catch (error) {
         failed.push({
           fileName: file.name,
@@ -183,11 +157,11 @@ export function UploadDialog() {
       }
     }
 
-    if (successCount > 0) {
+    if (uploadedCount > 0) {
       const label =
-        successCount === 1
+        uploadedCount === 1
           ? 'Сертификат успешно загружен'
-          : `Загружено сертификатов: ${successCount}`
+          : `Загружено сертификатов: ${uploadedCount}`
       toast.success(label)
     }
 
@@ -200,11 +174,12 @@ export function UploadDialog() {
       )
     }
 
-    if (successCount === files.length) {
+    if (failed.length === 0 && uploadedCount === files.length) {
       resetForm()
       setOpen(false)
-    } else if (successCount > 0) {
+    } else {
       setFiles(remainingFiles)
+      setSuccessCount(0)
     }
   }
 
@@ -224,7 +199,7 @@ export function UploadDialog() {
           </Button>
         }
       />
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Загрузка сертификатов</DialogTitle>
           <DialogDescription>
@@ -251,7 +226,7 @@ export function UploadDialog() {
             <Label 
               htmlFor="create-employee" 
               className={cn("flex flex-col gap-1 w-full", isUploading || employeeId !== '' && "opacity-50")}>
-              <p className="self-start">Создавать сотрудника на каждый сертификат?</p>
+              <p className="self-start">Создавать/привязать сотрудника на каждый сертификат?</p>
               <p className="text-xs text-muted-foreground">
                 Если выбрано, то при загрузке сертификата, если сотрудник не найден, 
                 то будет создан новый сотрудник с информацией подтягивающейся из AD. 
@@ -282,86 +257,19 @@ export function UploadDialog() {
 
           <Field>
             <FieldLabel>Файлы сертификатов</FieldLabel>
-            <div
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  inputRef.current?.click()
-                }
-              }}
-              onClick={() => inputRef.current?.click()}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              className={cn(
-                'flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors',
-                isDragging
-                  ? 'border-amber-400 bg-amber-50/80 dark:bg-amber-950/30'
-                  : 'border-border bg-muted/30 hover:border-amber-300 hover:bg-muted/50'
-              )}
-            >
-              <div className="flex size-12 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-700">
-                <Upload className="size-6" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">
-                  Перетащите файлы сюда
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  или нажмите, чтобы выбрать на компьютере
-                </p>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                .cer, .p7b — один или несколько файлов
-              </p>
-            </div>
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".cer,.p7b"
-              multiple
-              className="sr-only"
-              disabled={isUploading}
-              onChange={(e) => {
-                if (e.target.files?.length) {
-                  addFiles(e.target.files)
-                }
-                e.target.value = ''
-              }}
-            />
+            <UploadInput addFiles={addFiles} />
           </Field>
      
           {files.length > 0 && (
             <ul className="max-h-40 space-y-2 overflow-y-auto rounded-lg border border-border/70 bg-muted/20 p-2">
               {files.map((file, index) => (
-                <li
+                <UploadFileListItem
                   key={fileKey(file)}
-                  className="flex items-center gap-2 rounded-md bg-background px-2 py-1.5 text-sm"
-                >
-                  <FileBadge2 className="size-4 shrink-0 text-amber-600" />
-                  <span className="min-w-0 flex-1 truncate font-medium">
-                    {file.name}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {formatFileSize(file.size)}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="shrink-0 cursor-pointer"
-                    disabled={isUploading}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      removeFile(index)
-                    }}
-                    aria-label={`Удалить ${file.name}`}
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </li>
+                  file={file}
+                  index={index}
+                  removeFile={removeFile}
+                  isUploading={isUploading}
+                />
               ))}
             </ul>
           )}
@@ -382,11 +290,12 @@ export function UploadDialog() {
             type="button"
             disabled={isUploading || files.length === 0}
             onClick={handleUpload}
+            className='cursor-pointer disabled:cursor-not-allowed'
           >
             {isUploading ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Загрузка…
+                Загрузка… {successCount} из {files.length}
               </>
             ) : (
               <>
