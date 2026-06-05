@@ -7,9 +7,6 @@ import { certificateService } from "@/server/services/certificate-service";
 import type { SafeResult } from "@/types/safe-result-types";
 import { requireAuth } from "@/lib/session-helper";
 import type { Certificate } from "@/generated/prisma/browser";
-import { parseCert } from "@/minio/parse-cert";
-import { employeeService } from "@/server/services/employee-service";
-import { getEmployeeInfoFromAD } from "../../services/graphql-service";
 
 export default async function uploadCertificateToEmployeeAction(
   formData: FormData,
@@ -100,7 +97,11 @@ export async function uploadCertificateAndSyncADUserAction(
 
   try { 
     const { file, notes } = parsed.data;
-    const result = await certificateService.uploadWithEmployeeSync({parsedData: { file, notes }, username});
+
+    const result = await certificateService.uploadWithEmployeeSync({
+      parsedData: { file, notes }, username
+    });
+
     if (!result.success) {
       return result;
     }

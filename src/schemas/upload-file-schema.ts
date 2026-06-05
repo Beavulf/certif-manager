@@ -15,7 +15,7 @@ export const uploadCertificateSchema = z.object({
     .refine(f => f.size > 0, 'Файл пустой')
     .refine(f => f.size <= fileConfig.MAX_FILE_SIZE, 'Файл превышает 10MB')
     .refine(
-      f => f.name.endsWith(CERT_FILE_TYPES.cer) || f.name.endsWith(CERT_FILE_TYPES.p7b),
+      f => f.name.toLocaleLowerCase().endsWith(CERT_FILE_TYPES.cer) || f.name.toLocaleLowerCase().endsWith(CERT_FILE_TYPES.p7b),
       'Допустимы только .cer и .p7b файлы'
     ),
   

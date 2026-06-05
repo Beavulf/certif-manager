@@ -40,7 +40,7 @@ export const certificateService = {
   ):Promise<Certificate>
    {
     let employee = undefined;
-    if (employeeId) {
+    if (typeof employeeId === "string" && employeeId.trim() !== '') {
       employee = await employeeService.findByIdOrThrow(employeeId);
     }
     
@@ -48,6 +48,10 @@ export const certificateService = {
 
     if (!parsedCert.subjectCN || parsedCert.subjectCN === 'Unknown') {
       throw new BadRequestError("Не удалось определить ФИО пользователя в сертификате");
+    }
+
+    if (employee && parsedCert.subjectCN !== employee.fullName) {
+      throw new BadRequestError("ФИО пользователя в сертификате не совпадает с ФИО пользователя в системе");
     }
 
     const isExpired = new Date(parsedCert.validTo) < new Date();
@@ -169,8 +173,9 @@ export const certificateService = {
     if (!employeeInfo.success || !employeeInfo.data || employeeInfo.data.length === 0) {
       return {
         success: false,
-        error: 'Не удалось получить информацию о сотруднике из AD',
-        code: 'BAD_REQUEST',
+        error: employeeInfo.error,
+        code: employeeInfo.code,
+        fieldErrors: employeeInfo.fieldErrors,
       } 
     }
     if (employeeInfo.data.length > 1) {
@@ -186,6 +191,7 @@ export const certificateService = {
     }
     
     const { cn, sAMAccountName, title, department } = employeeInfo.data[0];
+
     const email = sAMAccountName+'@'+process.env.AD_EMAIL_DOMAIN;
     const newEmployee = await employeeService.create({
       fullName: cn,
@@ -224,7 +230,7 @@ export const certificateService = {
       const deleted = await repoCert.deleteById(certificate.id);
       await deleteFile(certificate.fileKey);
       
-      return {deleted, deletedDocs};
+      return { deleted, deletedDocs };
     });
 
     return result;
@@ -234,12 +240,59 @@ export const certificateService = {
     return await certificateRepository.findById(id);
   },
 
+  async findByIdWithRelations(id: string): Promise<CertificatesWithIncludes | null> {
+    return await certificateRepository.findByIdWithRelations(id);
+  },
+
+  async findByIdWithRelationsOrThrow(id: string): Promise<CertificatesWithIncludes> {
+    const certificate = await this.findByIdWithRelations(id);
+    if (!certificate) {
+      throw new NotFoundError("Сертификат не найден");
+    }
+    return certificate;
+  },
+
   async findByIdOrThrow(id: string):Promise<Certificate> {
     const certificate = await certificateRepository.findById(id);
     if (!certificate) {
       throw new NotFoundError("Сертификат не найден");
     }
     return certificate;
+  },
+
+  async assignToEmployee(certificateId: string, employeeId: string): Promise<Certificate> {
+    const certificate = await this.findByIdOrThrow(certificateId);
+    const employee = await employeeService.findByIdOrThrow(employeeId);
+
+    if (
+      certificate.subjectCN.trim().toLowerCase() !==
+      employee.fullName.trim().toLowerCase()
+    ) {
+      throw new BadRequestError(
+        "ФИО в сертификате не совпадает с ФИО сотрудника"
+      );
+    }
+
+    if (certificate.employeeId === employeeId) {
+      throw new BadRequestError("Сертификат уже привязан к этому сотруднику");
+    }
+
+    return await certificateRepository.updateById(certificateId, {
+      employee: { connect: { id: employeeId } },
+      subjectEmail: employee.email,
+    });
+  },
+
+  async unassignFromEmployee(certificateId: string): Promise<Certificate> {
+    const certificate = await this.findByIdOrThrow(certificateId);
+    if (!certificate.employeeId) {
+      throw new BadRequestError("Сертификат не привязан к сотруднику");
+    }
+
+    return await certificateRepository.updateById(certificateId, {
+      employee: { disconnect: true },
+      subjectEmail: null,
+    });
   },
 
   async findByEmployeeId(employeeId: string):Promise<Certificate[]> {

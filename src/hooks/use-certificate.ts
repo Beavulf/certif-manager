@@ -3,7 +3,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDebounce } from 'use-debounce';
 import { useMemo } from 'react';
-import { getCertificatesByFindMany } from '@/server/actions/certificate/get-certificate-action';
+import { getCertificateByIdAction, getCertificatesByFindMany } from '@/server/actions/certificate/get-certificate-action';
 import { queryKeys } from '@/constants/query-keys';
 import deleteCertificateAction from '@/server/actions/certificate/delete-certificate-action';
 import dayjs from '@/lib/dayjs-config';
@@ -12,6 +12,7 @@ import type { CertificatesWithIncludes } from '@/types/certificate-types';
 import { QUERY_CONFIG } from '@/constants/query-config';
 import { CertificateFields } from '@/types/certificate-types';
 import uploadCertificateToEmployeeAction, { uploadCertificateAndSyncADUserAction } from '@/server/actions/certificate/upload-certificate-action';
+import { updateCertificateEmployeeAction } from '@/server/actions/certificate/update-certificate-employee-action';
 
 /**
  * Хук для загрузки сертификата сотрудника.
@@ -133,6 +134,42 @@ export function useGetCertificatesAll(
     placeholderData: keepPreviousData,
     initialData: hasFilter ? undefined : initialData,
     ...QUERY_CONFIG,
+  });
+}
+
+export function useGetCertificateById(id: string | null, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.certificates.detail(id ?? ''),
+    queryFn: async () => {
+      if (!id) throw new Error('Идентификатор сертификата не указан');
+      const result = await getCertificateByIdAction(id);
+      if (!result.success) throw result;
+      return result.data;
+    },
+    enabled: Boolean(id) && enabled,
+    ...QUERY_CONFIG,
+  });
+}
+
+export function useUpdateCertificateEmployee() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: {
+      certificateId: string;
+      employeeId: string | null;
+    }) => {
+      const result = await updateCertificateEmployeeAction(input);
+      if (!result.success) throw result;
+      return result.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.certificates.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.certificates.detail(variables.certificateId),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+    },
   });
 }
 

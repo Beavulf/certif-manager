@@ -118,3 +118,15 @@ export const updateEmployeeByIdSchema = z.object({
     .boolean()
     .optional(),
 })
+
+const employeeADRecordSchema = z.object({
+  cn: z.string(),
+  distinguishedName: z.string(),
+  sAMAccountName: z.string(),
+  title: z.string().optional().default(''),
+  department: z.string().optional().default(''),
+  company: z.string().optional().default(''),
+});
+export const employeeADResponseSchema = z.object({
+  searchUser: z.array(employeeADRecordSchema),
+});

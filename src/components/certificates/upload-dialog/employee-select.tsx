@@ -21,6 +21,8 @@ export type EmployeeSelectProps = {
   disabled?: boolean
   id?: string
   className?: string
+  /** Показывать пункт «Без сотрудника» (по умолчанию да) */
+  allowEmpty?: boolean
 }
 
 function employeeSubtitle(employee: {
@@ -42,6 +44,7 @@ export function EmployeeSelect({
   disabled = false,
   id,
   className,
+  allowEmpty = true,
 }: EmployeeSelectProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -71,7 +74,9 @@ export function EmployeeSelect({
 
   const triggerLabel = selectedEmployee
     ? selectedEmployee.fullName
-    : 'Без сотрудника'
+    : allowEmpty
+      ? 'Без сотрудника'
+      : 'Выберите сотрудника'
 
   function selectEmployee(employeeId: string) {
     onValueChange(employeeId)
@@ -118,24 +123,26 @@ export function EmployeeSelect({
 
         <div className="mt-3 max-h-64 overflow-auto rounded-md border border-border/70">
           <div className="p-1">
-            <button
-              type="button"
-              onClick={() => selectEmployee(NO_EMPLOYEE_VALUE)}
-              className={cn(
-                'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent/50',
-                value === NO_EMPLOYEE_VALUE && 'bg-accent/50'
-              )}
-            >
-              <Check
+            {allowEmpty && (
+              <button
+                type="button"
+                onClick={() => selectEmployee(NO_EMPLOYEE_VALUE)}
                 className={cn(
-                  'size-4 shrink-0',
-                  value === NO_EMPLOYEE_VALUE
-                    ? 'opacity-100'
-                    : 'opacity-0'
+                  'flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-accent/50',
+                  value === NO_EMPLOYEE_VALUE && 'bg-accent/50'
                 )}
-              />
-              <span className="text-muted-foreground">Без сотрудника</span>
-            </button>
+              >
+                <Check
+                  className={cn(
+                    'size-4 shrink-0',
+                    value === NO_EMPLOYEE_VALUE
+                      ? 'opacity-100'
+                      : 'opacity-0'
+                  )}
+                />
+                <span className="text-muted-foreground">Без сотрудника</span>
+              </button>
+            )}
 
             {isLoading ? (
               <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">

@@ -24,6 +24,20 @@ export function createCertificateRepository(db: DbClient = prisma) {
       }
     },
 
+    async findByIdWithRelations(id: string) {
+      try {
+        return await db.certificate.findUnique({
+          where: { id },
+          include: {
+            employee: true,
+            documents: { select: { id: true } },
+          },
+        });
+      } catch (error) {
+        handlePrismaError(error);
+      }
+    },
+
     async findByEmployeeId(employeeId: string): Promise<Certificate[]> {
       try {
         return await db.certificate.findMany({ 

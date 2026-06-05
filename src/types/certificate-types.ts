@@ -13,7 +13,7 @@ export interface GetCertificateOptions {
 }
 
 export type CertificatesWithIncludes = Certificate & {
-  employee?: Employee,
+  employee?: Employee | null,
   documents?: Document[],
   notificationLog?: NotificationLog
 }

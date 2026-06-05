@@ -5,6 +5,30 @@ import { getCertificateSchema } from "@/schemas/get-certificate-schema";
 import { mapErrorToSafeResult } from "@/server/errors/map-error";
 import { certificateService } from "@/server/services/certificate-service";
 import type { SafeResult } from "@/types/safe-result-types";
+import type { CertificatesWithIncludes } from "@/types/certificate-types";
+import { z } from "zod";
+
+const certificateIdSchema = z.string().uuid("Некорректный идентификатор сертификата");
+
+export async function getCertificateByIdAction(
+  id: string
+): Promise<SafeResult<CertificatesWithIncludes>> {
+  const parsed = certificateIdSchema.safeParse(id);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: "Ошибка валидации",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    const certificate = await certificateService.findByIdWithRelationsOrThrow(parsed.data);
+    return { success: true, data: certificate };
+  } catch (error) {
+    return mapErrorToSafeResult(error);
+  }
+}
 
 export async function getCertificateAction(
   formData: FormData

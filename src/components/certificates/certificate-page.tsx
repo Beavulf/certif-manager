@@ -14,6 +14,7 @@ import type { Certificate } from '@/generated/prisma/client';
 import { FilterSelect } from './filter-select';
 import { CertificateFields } from '@/types/certificate-types';
 import { UploadDialog } from './upload-dialog/upload-dialog';
+import { CertificateDetailDialog } from './certificate-detail-dialog';
 
 const FILTER_FIELDS = [
   {label: 'ФИО', value: CertificateFields.subjectCN},
@@ -35,6 +36,13 @@ export function CertificatesPage(
   const [search, setSearch] = useState('');
   const initialData = initial.success ? initial.data : []
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
+  const [detailCertificateId, setDetailCertificateId] = useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const openCertificateDetail = (id: string) => {
+    setDetailCertificateId(id);
+    setDetailOpen(true);
+  };
 
   const { data=[], isPending, error, refetch } = useGetCertificatesAll({
     filter: search, 
@@ -76,6 +84,15 @@ export function CertificatesPage(
   
   return (
     <>
+      <CertificateDetailDialog
+        certificateId={detailCertificateId}
+        open={detailOpen}
+        onOpenChange={(next) => {
+          setDetailOpen(next);
+          if (!next) setDetailCertificateId(null);
+        }}
+      />
+
       <Card className="border-border/70 shadow-sm">
         <CardContent className="flex items-center justify-between gap-4 p-4">
           <div className="flex flex-1 items-center gap-3">
@@ -187,6 +204,62 @@ export function CertificatesPage(
         </CardContent>
    
       </Card>
+
+      {!isEmpty && (
+        <Card className="border-border/70 border-dashed shadow-sm">
+          <CardHeader className="border-b border-border/70 pb-4">
+            <CardTitle className="text-base font-semibold">
+              Тестовая таблица
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Временный способ открыть карточку сертификата — нажмите на строку
+            </p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-left text-muted-foreground">
+                  <tr className="border-b border-border/70">
+                    <th className="px-6 py-3 font-medium">ФИО (subjectCN)</th>
+                    <th className="px-6 py-3 font-medium">Серийный номер</th>
+                    <th className="px-6 py-3 font-medium">Действие</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.map((item) => (
+                    <tr
+                      key={`test-${item.id}`}
+                      className="cursor-pointer border-b border-border/60 transition-colors hover:bg-accent/40"
+                      onClick={() => openCertificateDetail(item.id)}
+                    >
+                      <td className="px-6 py-3 font-medium text-foreground">
+                        {item.subjectCN}
+                      </td>
+                      <td className="px-6 py-3 font-mono text-xs text-muted-foreground">
+                        {item.serialNumber}
+                      </td>
+                      <td className="px-6 py-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openCertificateDetail(item.id);
+                          }}
+                        >
+                          Подробнее
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </>
   );
 }

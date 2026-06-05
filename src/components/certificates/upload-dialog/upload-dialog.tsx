@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useState } from 'react'
-import { Loader2, Upload } from 'lucide-react'
+import { useCallback, useRef, useState } from 'react'
+import { Loader2, Square, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -65,6 +65,7 @@ export function UploadDialog() {
   const [uploadFailures, setUploadFailures] = useState<UploadFailure[]>([]);
   const [createEmployee, setCreateEmployee] = useState(true);
   const [successCount, setSuccessCount] = useState(0);
+  const cancelRef = useRef(false);
 
   const resetForm = useCallback(() => {
     setFiles([])
@@ -72,7 +73,12 @@ export function UploadDialog() {
     setNotes('')
     setSuccessCount(0);
     setUploadFailures([])
+    cancelRef.current = false;
   }, [])
+
+  const onCancel = () => {
+    cancelRef.current = true;
+  }
 
   const addFiles = useCallback((incoming: FileList | File[]) => {
     const list = Array.from(incoming)
@@ -109,6 +115,7 @@ export function UploadDialog() {
   }, [])
   
   const handleUpload = async () => {
+    cancelRef.current = false;
     const trimmedEmployeeId = employeeId.trim()
     if (files.length === 0) {
       toast.error('Добавьте хотя бы один файл сертификата')
@@ -121,6 +128,10 @@ export function UploadDialog() {
     setSuccessCount(0)
 
     for (const file of files) {
+      if (cancelRef.current) {
+        toast.error('Загрузка прервана')
+        break;
+      }
       const formData = new FormData()
       if (trimmedEmployeeId) {
         formData.append('employeeId', trimmedEmployeeId)
@@ -131,7 +142,7 @@ export function UploadDialog() {
       }
 
       try {
-        if (createEmployee && trimmedEmployeeId === '' && employeeId == '') {
+        if (createEmployee && trimmedEmployeeId === '') {
           const result = await uploadCertificates({dataForm: formData, uploadSyncEmployee: true});
           if (!result.success) {
             throw result;
@@ -188,7 +199,10 @@ export function UploadDialog() {
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
-        if (!next) resetForm()
+        if (!next) {
+          resetForm()
+          onCancel()
+        }
       }}
     >
       <DialogTrigger
@@ -226,12 +240,12 @@ export function UploadDialog() {
             <Label 
               htmlFor="create-employee" 
               className={cn("flex flex-col gap-1 w-full", isUploading || employeeId !== '' && "opacity-50")}>
-              <p className="self-start">Создавать/привязать сотрудника на каждый сертификат?</p>
+              <p className="self-start">Автоматически создать или привязать сотрудника для сертификата?</p>
               <p className="text-xs text-muted-foreground">
                 Если выбрано, то при загрузке сертификата, если сотрудник не найден, 
                 то будет создан новый сотрудник с информацией подтягивающейся из AD. 
-                Либо если сотрудник найден, но нет привязки к сертификату, то будет 
-                привязан к сертификату.
+                Либо если сотрудник найден, но нет привязки сертификата, то будет 
+                привязан сертификат.
               </p>
             </Label>
             <Checkbox
@@ -278,7 +292,7 @@ export function UploadDialog() {
           )}
         </FieldGroup>
 
-        <DialogFooter>
+        <DialogFooter className="items-center">
           <DialogClose
             render={
               <Button variant="outline" disabled={isUploading}>
@@ -286,26 +300,34 @@ export function UploadDialog() {
               </Button>
             }
           />
-          <Button
-            type="button"
-            disabled={isUploading || files.length === 0}
-            onClick={handleUpload}
-            className='cursor-pointer disabled:cursor-not-allowed'
-          >
-            {isUploading ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                Загрузка… {successCount} из {files.length}
-              </>
-            ) : (
-              <>
-                <Upload className="size-4" />
-                {files.length > 1
-                  ? `Загрузить (${files.length})`
-                  : 'Загрузить'}
-              </>
-            )}
-          </Button>
+          {isUploading ? (
+            <Button
+              title='Отменить загрузку'
+              type="button"
+              disabled={!isUploading}
+              onClick={onCancel}
+              className='cursor-pointer disabled:cursor-not-allowed'
+            >
+              <Loader2 className="size-4 animate-spin" />
+              Загрузка… {successCount} из {files.length}
+              <div className="flex items-center justify-center bg-red-500/20 rounded-full size-8 cursor-pointer hover:bg-red-500/30" onClick={onCancel}>
+                <Square className="size-4" />
+              </div>
+            </Button>
+          ):(
+            <Button
+              title='Загрузить сертификаты'
+              type="button"
+              disabled={files.length === 0 || isUploading}
+              onClick={handleUpload}
+              className='cursor-pointer disabled:cursor-not-allowed'
+            >
+              <Upload className="size-4" />
+              {files.length > 1
+                ? `Загрузить (${files.length})`
+                : 'Загрузить'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
