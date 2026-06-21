@@ -1,0 +1,73 @@
+'use client';
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useDebounce } from 'use-debounce';
+import { toast } from 'sonner';
+
+import { QUERY_CONFIG } from '@/constants/query-config';
+import { queryKeys } from '@/constants/query-keys';
+import { getNotificationLogsPageAction } from '@/server/actions/notifications/get-notification-logs-page-action';
+import { runNotificationCheckAction } from '@/server/actions/notifications/run-notification-check-action';
+import type {
+  NotificationLogsQuery,
+  RunNotificationCheckInput,
+} from '@/schemas/notifications-schema';
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message;
+  const err = error as { error?: string };
+  return err.error ?? fallback;
+}
+
+export function useNotificationLogsPage(filters: NotificationLogsQuery) {
+  const [debouncedSearch] = useDebounce(filters.search ?? '', 300);
+
+  const queryFilters = {
+    ...filters,
+    search: debouncedSearch || undefined,
+  };
+
+  return useQuery({
+    queryKey: queryKeys.notifications.page(queryFilters),
+    queryFn: async () => {
+      const result = await getNotificationLogsPageAction(queryFilters);
+      if (!result.success) throw result;
+      return result.data!;
+    },
+    ...QUERY_CONFIG,
+  });
+}
+
+export function useRunNotificationCheck() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input?: RunNotificationCheckInput) => {
+      const result = await runNotificationCheckAction(input);
+      if (!result.success) throw result;
+      return result.data!;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+      if (data.disabled) {
+        toast.warning(data.message);
+        return;
+      }
+      const daysHint = data.checkDays?.length
+        ? ` (дни: ${data.checkDays.join(', ')})`
+        : '';
+      if (data.sent > 0) {
+        toast.success(`${data.message}${daysHint}`);
+      } else if (data.failed > 0) {
+        toast.error(`${data.message}${daysHint}`);
+      } else if (data.skipped > 0) {
+        toast.warning(`${data.message}${daysHint}`);
+      } else {
+        toast.info(`${data.message}${daysHint}`);
+      }
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error, 'Не удалось запустить проверку'));
+    },
+  });
+}

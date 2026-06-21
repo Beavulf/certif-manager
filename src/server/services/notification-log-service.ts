@@ -4,14 +4,69 @@ import { notificationLogRepository } from "../repositories/notification-log-repo
 import type { NotificationLogCreateInput, NotificationLogFindManyArgs } from "@/generated/prisma/models";
 import type { NotificationLog, Prisma } from "@/generated/prisma/client";
 import { certificateService } from "./certificate-service";
+import {
+  buildNotificationLogsWhere,
+  getTodayStart,
+  type NotificationStats,
+} from "@/lib/notification-log-filters";
+import type { NotificationLogsQuery } from "@/schemas/notifications-schema";
+
+const certificateInclude = {
+  certificate: {
+    include: {
+      employee: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          department: true,
+        },
+      },
+    },
+  },
+} as const;
 
 export const notificationLogService = {
 
   async findMany(
     args?: NotificationLogFindManyArgs
   ):Promise<NotificationLogWithIncludes[]> {
-    const certificates = await notificationLogRepository.findMany(args);
-    return certificates;
+    return notificationLogRepository.findMany(args);
+  },
+
+  async count(args?: Prisma.NotificationLogCountArgs): Promise<number> {
+    return notificationLogRepository.count(args);
+  },
+
+  async findPage(query: NotificationLogsQuery) {
+    const where = buildNotificationLogsWhere(query);
+    const skip = (query.page - 1) * query.pageSize;
+
+    const [items, total] = await Promise.all([
+      notificationLogRepository.findMany({
+        where,
+        orderBy: { sentAt: 'desc' },
+        skip,
+        take: query.pageSize,
+        include: certificateInclude,
+      }),
+      notificationLogRepository.count({ where }),
+    ]);
+
+    return { items, total, page: query.page, pageSize: query.pageSize };
+  },
+
+  async getStats(): Promise<NotificationStats> {
+    const todayStart = getTodayStart();
+
+    const [total, sent, failed, today] = await Promise.all([
+      notificationLogRepository.count(),
+      notificationLogRepository.count({ where: { status: 'sent' } }),
+      notificationLogRepository.count({ where: { status: 'failed' } }),
+      notificationLogRepository.count({ where: { sentAt: { gte: todayStart } } }),
+    ]);
+
+    return { total, sent, failed, today };
   },
 
   async create(data: NotificationLogCreateInput):Promise<NotificationLog> {

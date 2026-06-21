@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { MAX_NOTIFICATION_DAYS, MIN_NOTIFICATION_DAYS } from '@/constants/notification-days';
+
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export const updateAppSettingsSchema = z
@@ -65,7 +67,7 @@ export const updateNotificationSettingsSchema = z
     id: z.string().uuid().optional(),
     isEnabled: z.boolean(),
     daysBeforeExpiry: z
-      .array(z.coerce.number().int().min(1).max(365))
+      .array(z.coerce.number().int().min(MIN_NOTIFICATION_DAYS).max(MAX_NOTIFICATION_DAYS))
       .min(1, 'Укажите хотя бы один день')
       .max(10, 'Не более 10 напоминаний'),
     smtpHost: z.string().trim().min(1, 'SMTP-хост обязателен'),

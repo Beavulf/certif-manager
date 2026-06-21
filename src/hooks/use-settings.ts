@@ -78,7 +78,11 @@ export function useUpdateNotificationSettings() {
       if (!result.success) throw result;
       return result.data!;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      queryClient.setQueryData<SettingsBundle | undefined>(
+        queryKeys.settings.bundle,
+        (prev) => (prev ? { ...prev, notification: data } : prev),
+      );
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.all });
       toast.success('Настройки уведомлений сохранены');
     },

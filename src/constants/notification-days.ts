@@ -1,0 +1,2 @@
+export const MIN_NOTIFICATION_DAYS = 1;
+export const MAX_NOTIFICATION_DAYS = 1500;

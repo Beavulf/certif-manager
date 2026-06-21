@@ -57,6 +57,14 @@ export function createNotificationLogRepository(db: DbClient = prisma) {
         handlePrismaError(error)
       }
     },
+
+    async count(args?: Prisma.NotificationLogCountArgs): Promise<number> {
+      try {
+        return await db.notificationLog.count(args);
+      } catch (error) {
+        handlePrismaError(error);
+      }
+    },
   } as const;
 }
 

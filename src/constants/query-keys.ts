@@ -13,6 +13,8 @@ export const queryKeys = {
     all: ['notifications'] as const,
     settings: ['notifications', 'settings'] as const,
     byCertificate: (id: string) => ['notifications', 'logs', id] as const,
+    page: (filters: Record<string, unknown>) =>
+      ['notifications', 'page', filters] as const,
   },
   documents: {
     all: ['documents'] as const,

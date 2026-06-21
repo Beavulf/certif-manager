@@ -6,20 +6,25 @@ import {
   Form,
   Input,
   InputNumber,
-  Select,
   Switch,
 } from 'antd';
-import { Loader2, Mail, PlugZap } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Loader2, Mail, Play, PlugZap } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
+import { Input as UiInput } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
   useSendTestEmail,
   useUpdateNotificationSettings,
   useVerifySmtp,
 } from '@/hooks/use-settings';
+import { useRunNotificationCheck } from '@/hooks/use-notifications';
 import type { NotificationSettingsPublic } from '@/types/settings-types';
 
+import { formatDaysList, parseDaysInput } from './days-input';
+import { MAX_NOTIFICATION_DAYS } from '@/constants/notification-days';
 import {
   SettingsLabelWithTooltip,
   SettingsSectionCard,
@@ -29,27 +34,96 @@ type NotificationSettingsFormProps = {
   settings: NotificationSettingsPublic;
 };
 
+function buildFormValues(settings: NotificationSettingsPublic) {
+  return {
+    isEnabled: settings.isEnabled,
+    daysBeforeExpiryText: formatDaysList(settings.daysBeforeExpiry),
+    smtpHost: settings.smtpHost,
+    smtpPort: settings.smtpPort,
+    smtpUser: settings.smtpUser ?? '',
+    smtpPassword: '',
+    senderEmail: settings.senderEmail,
+    senderName: settings.senderName ?? '',
+  };
+}
+
+function toSavePayload(values: Record<string, unknown>) {
+  const days = parseDaysInput(String(values.daysBeforeExpiryText ?? ''));
+
+  return {
+    isEnabled: Boolean(values.isEnabled),
+    daysBeforeExpiry: days,
+    smtpHost: String(values.smtpHost ?? '').trim(),
+    smtpPort: values.smtpPort,
+    smtpUser: values.smtpUser ? String(values.smtpUser).trim() : null,
+    smtpPassword: values.smtpPassword ? String(values.smtpPassword) : null,
+    senderEmail: String(values.senderEmail ?? '').trim(),
+    senderName: values.senderName ? String(values.senderName).trim() : null,
+  };
+}
+
 export function NotificationSettingsForm({ settings }: NotificationSettingsFormProps) {
   const [form] = Form.useForm();
+  const syncedKeyRef = useRef<string | null>(null);
   const [testEmail, setTestEmail] = useState('');
+  const [testDaysInput, setTestDaysInput] = useState('');
+  const [ignoreAlreadySent, setIgnoreAlreadySent] = useState(false);
   const { mutateAsync, isPending } = useUpdateNotificationSettings();
   const verifySmtp = useVerifySmtp();
   const sendTest = useSendTestEmail();
+  const runCheck = useRunNotificationCheck();
 
   useEffect(() => {
-    form.setFieldsValue({
-      isEnabled: settings.isEnabled,
-      daysBeforeExpiry: settings.daysBeforeExpiry,
-      smtpHost: settings.smtpHost,
-      smtpPort: settings.smtpPort,
-      smtpUser: settings.smtpUser ?? '',
-      smtpPassword: '',
-      senderEmail: settings.senderEmail,
-      senderName: settings.senderName ?? '',
-    });
+    const syncKey = `${settings.id}:${new Date(settings.updatedAt).getTime()}`;
+    if (syncedKeyRef.current === syncKey) return;
+    syncedKeyRef.current = syncKey;
+    form.setFieldsValue(buildFormValues(settings));
   }, [form, settings]);
 
-  const getFormValues = () => form.getFieldsValue(true);
+  const getSavePayload = () => toSavePayload(form.getFieldsValue(true));
+
+  const handleSave = async () => {
+    try {
+      const values = await form.validateFields();
+      const payload = toSavePayload(values);
+
+      if (!payload.daysBeforeExpiry.length) {
+        toast.error(`Укажите хотя бы один день (1–${MAX_NOTIFICATION_DAYS}) в поле «Дни до истечения»`);
+        return;
+      }
+
+      await mutateAsync(payload);
+    } catch (error) {
+      const err = error as { error?: string; errorFields?: unknown };
+      if (err?.errorFields) {
+        toast.error('Проверьте поля формы');
+        return;
+      }
+      if (err?.error) {
+        toast.error(err.error);
+      }
+    }
+  };
+
+  const runManualCheck = async () => {
+    const testDays = parseDaysInput(testDaysInput);
+    const mainDays = parseDaysInput(
+      String(form.getFieldValue('daysBeforeExpiryText') ?? ''),
+    );
+
+    const daysBeforeExpiry = testDays.length > 0 ? testDays : mainDays;
+
+    if (!daysBeforeExpiry.length) {
+      toast.error('Укажите дни в тестовом поле или в основной настройке');
+      return;
+    }
+
+    await runCheck.mutateAsync({
+      daysBeforeExpiry,
+      ignoreAlreadySent: ignoreAlreadySent || undefined,
+      useTestDays: testDays.length > 0,
+    });
+  };
 
   return (
     <ConfigProvider
@@ -60,12 +134,7 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
         },
       }}
     >
-      <Form
-        form={form}
-        layout="vertical"
-        requiredMark={false}
-        onFinish={(values) => mutateAsync(values)}
-      >
+      <Form form={form} layout="vertical" requiredMark={false}>
         <SettingsSectionCard
           title="Email-уведомления"
           description="Автоматические напоминания сотрудникам об истечении сертификатов."
@@ -84,24 +153,25 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
           </Form.Item>
 
           <Form.Item
-            name="daysBeforeExpiry"
+            name="daysBeforeExpiryText"
             label={
               <SettingsLabelWithTooltip
                 label="Дни до истечения"
-                tooltip="За сколько дней до validTo отправлять напоминание. Можно указать несколько значений, например 30, 14 и 7."
+                tooltip="За сколько дней до validTo отправлять напоминание. Через запятую: 30, 14, 7."
               />
             }
-            rules={[{ required: true, message: 'Укажите хотя бы один день' }]}
+            rules={[
+              {
+                validator: async (_, value) => {
+                  const parsed = parseDaysInput(String(value ?? ''));
+                  if (!parsed.length) {
+                    throw new Error(`Укажите хотя бы один день (1–${MAX_NOTIFICATION_DAYS})`);
+                  }
+                },
+              },
+            ]}
           >
-            <Select
-              mode="tags"
-              tokenSeparators={[',', ' ']}
-              placeholder="30, 14, 7"
-              options={[30, 14, 7, 3, 1].map((day) => ({
-                value: day,
-                label: `${day} дн.`,
-              }))}
-            />
+            <Input placeholder="30, 14, 7" />
           </Form.Item>
         </SettingsSectionCard>
 
@@ -211,7 +281,7 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
                   variant="outline"
                   size="sm"
                   disabled={verifySmtp.isPending}
-                  onClick={() => verifySmtp.mutateAsync(getFormValues())}
+                  onClick={() => verifySmtp.mutateAsync(getSavePayload())}
                 >
                   {verifySmtp.isPending ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -223,7 +293,7 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
               </div>
 
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                <Input
+                <UiInput
                   value={testEmail}
                   onChange={(e) => setTestEmail(e.target.value)}
                   placeholder="email@company.local"
@@ -238,7 +308,7 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
                   onClick={() =>
                     sendTest.mutateAsync({
                       testEmail: testEmail.trim(),
-                      settings: getFormValues(),
+                      settings: getSavePayload(),
                     })
                   }
                 >
@@ -255,12 +325,64 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
         </div>
 
         <div className="mt-5 flex justify-end">
-          <Button type="submit" disabled={isPending}>
+          <Button type="button" disabled={isPending} onClick={handleSave}>
             {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
             Сохранить уведомления
           </Button>
         </div>
       </Form>
+
+      <SettingsSectionCard
+        title="Ручная проверка"
+        description="Тестовый запуск без влияния на cron. Дни из тестового поля имеют приоритет."
+        className="mt-5"
+      >
+        <div className="space-y-3">
+          <div>
+            <SettingsLabelWithTooltip
+              label="Дни для тестового запуска"
+              tooltip="Если указано — проверка только по этим дням. Если пусто — берутся дни из поля «Дни до истечения» (можно не сохранять)."
+              className="mb-2"
+            />
+            <UiInput
+              value={testDaysInput}
+              onChange={(e) => setTestDaysInput(e.target.value)}
+              placeholder="Например: 45"
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Одно число или несколько через запятую (1–{MAX_NOTIFICATION_DAYS}).
+            </p>
+          </div>
+
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+            <Checkbox
+              checked={ignoreAlreadySent}
+              onChange={(e) => setIgnoreAlreadySent(e.target.checked)}
+            />
+            <span>Повторить, даже если уже отправлялось сегодня</span>
+          </label>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={runCheck.isPending}
+              onClick={() => void runManualCheck()}
+            >
+              {runCheck.isPending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Play className="size-4" />
+              )}
+              Запустить проверку сейчас
+            </Button>
+            <Button type="button" variant="outline" size="sm" asChild>
+              <Link href="/notifications">Журнал уведомлений</Link>
+            </Button>
+          </div>
+        </div>
+      </SettingsSectionCard>
     </ConfigProvider>
   );
 }
