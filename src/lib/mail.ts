@@ -135,14 +135,9 @@ function buildSubject(daysLeft: number, certCN: string): string {
   return `🔵 Напоминание: сертификат "${certCN}" истекает через ${daysLeft} ${pluralizeDays(daysLeft)}`
 }
 
-async function createTransporter() {
-  const settings = await notificationSettingsService.findFirst({
-    where: { isEnabled: true },
-  })
-
-  if (!settings) { throw new SmtpError('Файл SMTP настройки не найден') }
+function createTransporterFromSettings(settings: NotificationSettings) {
   if (!settings.smtpHost || !settings.senderEmail) {
-    throw new SmtpError('SMTP не настроен. Заполните настройки уведомлений.')
+    throw new SmtpError('SMTP не настроен. Заполните настройки уведомлений.');
   }
 
   return nodemailer.createTransport({
@@ -155,7 +150,17 @@ async function createTransporter() {
           pass: settings.smtpPassword ?? '',
         }
       : undefined,
-  })
+  });
+}
+
+async function createTransporter() {
+  const settings = await notificationSettingsService.getOrCreate();
+
+  if (!settings.isEnabled) {
+    throw new SmtpError('Уведомления отключены');
+  }
+
+  return createTransporterFromSettings(settings);
 }
 
 // Основная функция отправки
@@ -242,24 +247,66 @@ export async function sendExpiryEmail(
 }
 
 // проверка соединения SMTP сервера
-export async function verifySmtpConnection(): Promise<EmailResult> {
+export async function verifySmtpConnection(
+  settings?: NotificationSettings,
+): Promise<EmailResult> {
   try {
-    const transporter = await createTransporter()
-    await transporter.verify()
-    
-    return { success: true }
+    const config = settings ?? (await notificationSettingsService.getOrCreate());
+    const transporter = createTransporterFromSettings(config);
+    await transporter.verify();
+
+    return { success: true };
   } catch (error) {
     await auditlogService.log({
       action: 'sendNotification',
       entityType: 'notificationSettings',
       displayName: `Ошибка проверки SMTP соединения: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`,
     });
-    
+
     return {
       success: false,
-      error: 
-        error instanceof AppError ? error.message : 
-        error instanceof Error ? error.message : `Не удалось подключиться`,
-    }
+      error:
+        error instanceof AppError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'Не удалось подключиться',
+    };
+  }
+}
+
+export async function sendTestEmail(
+  to: string,
+  settings?: NotificationSettings,
+): Promise<EmailResult> {
+  const config = settings ?? (await notificationSettingsService.getOrCreate());
+
+  if (!config.smtpHost || !config.senderEmail) {
+    return { success: false, error: 'SMTP не настроен' };
+  }
+
+  const transporter = createTransporterFromSettings(config);
+
+  try {
+    await transporter.sendMail({
+      from: `"${config.senderName ?? 'Cert Manager'}" <${config.senderEmail}>`,
+      to,
+      subject: 'Тестовое письмо — Cert Manager',
+      html: `
+        <div style="font-family:Arial,sans-serif;padding:24px;">
+          <h2 style="margin:0 0 12px;">Тестовое письмо</h2>
+          <p style="margin:0;color:#374151;">
+            SMTP настроен корректно. Уведомления об истечении сертификатов будут отправляться с этого адреса.
+          </p>
+        </div>
+      `,
+    });
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Не удалось отправить письмо',
+    };
   }
 }

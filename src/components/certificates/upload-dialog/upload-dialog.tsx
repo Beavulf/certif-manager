@@ -24,8 +24,12 @@ import {
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { UPLOAD_FILE_CONFIG as fileConfig } from '@/constants/upload-config'
 import { useUploadCertificate } from '@/hooks/use-certificate'
+import { usePublicAppSettings } from '@/hooks/use-settings'
+import {
+  getUploadLimitsFromSettings,
+  validateCertificateFile,
+} from '@/lib/app-settings-helpers'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/constants/query-keys'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -33,18 +37,8 @@ import { Label } from '@/components/ui/label'
 import { UploadInput } from './upload-input'
 import { UploadFileListItem } from './upload-file-list-item'
 
-function isCertificateFile(file: File): boolean {
-  const lower = file.name.toLowerCase()
-  return fileConfig.ARR_CERT_TYPE.some((ext) => lower.endsWith(ext))
-}
-
-function validateFile(file: File): string | null {
-  if (!isCertificateFile(file)) {
-    return 'Допустимы только файлы .cer и .p7b'
-  }
-  if (file.size === 0) return 'Файл пустой'
-  if (file.size > fileConfig.MAX_FILE_SIZE) return 'Файл превышает 10 МБ'
-  return null
+function validateFile(file: File, limits: ReturnType<typeof getUploadLimitsFromSettings>): string | null {
+  return validateCertificateFile(file, limits)
 }
 
 function fileKey(file: File): string {
@@ -53,6 +47,15 @@ function fileKey(file: File): string {
 
 export function UploadDialog() {
   const queryClient = useQueryClient();
+  const { data: appSettings } = usePublicAppSettings();
+  const uploadLimits = appSettings
+    ? getUploadLimitsFromSettings({
+        maxFileSizeMb: appSettings.maxFileSizeMb,
+        allowedCertTypes: appSettings.allowedCertTypes,
+        allowedDocTypes: appSettings.allowedDocTypes,
+      })
+    : getUploadLimitsFromSettings(null);
+
   // invalidate: false - не инвалидировать кэш сертификатов
   const {mutateAsync: uploadCertificates, isPending: isUploading} = useUploadCertificate({
     invalidate: false
@@ -86,7 +89,7 @@ export function UploadDialog() {
 
     const valid: File[] = []
     for (const file of list) {
-      const error = validateFile(file)
+      const error = validateFile(file, uploadLimits)
       if (error) {
         toast.error(`${file.name}: ${error}`)
         continue
@@ -108,7 +111,7 @@ export function UploadDialog() {
       }
       return next
     })
-  }, [])
+  }, [uploadLimits])
 
   const removeFile = useCallback((index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index))
@@ -271,7 +274,11 @@ export function UploadDialog() {
 
           <Field>
             <FieldLabel>Файлы сертификатов</FieldLabel>
-            <UploadInput addFiles={addFiles} />
+            <UploadInput
+              addFiles={addFiles}
+              acceptExtensions={uploadLimits.allowedCertTypes}
+              maxSizeMb={uploadLimits.maxFileSizeMb}
+            />
           </Field>
      
           {files.length > 0 && (

@@ -6,7 +6,10 @@ import type { Certificate } from "@/generated/prisma/client";
 import type { SafeResult } from "@/types/safe-result-types";
 
 export default async function Home() {
-  const init = await getCertificatesByFindMany() as SafeResult<Certificate[]>;
+  const init = await getCertificatesByFindMany({
+    include: { employee: { select: { id: true, fullName: true } } },
+    orderBy: { uploadedAt: 'desc' },
+  }) as SafeResult<Certificate[]>;
   
   return (
     <>
@@ -14,7 +17,7 @@ export default async function Home() {
         title="Сертификаты"
         description="Загружай, просматривай и управляем сертификатами."
       />
-      <PageShell>
+      <PageShell wide>
         <CertificatesPage initial={init}/>
       </PageShell>
     </>

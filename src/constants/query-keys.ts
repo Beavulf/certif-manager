@@ -12,8 +12,20 @@ export const queryKeys = {
   notifications: {
     all: ['notifications'] as const,
     settings: ['notifications', 'settings'] as const,
+    byCertificate: (id: string) => ['notifications', 'logs', id] as const,
+  },
+  documents: {
+    all: ['documents'] as const,
+    byCertificate: (id: string) => ['documents', 'certificate', id] as const,
   },
   reports: {
     all: ['reports'] as const,
+  },
+  settings: {
+    all: ['settings'] as const,
+    bundle: ['settings', 'bundle'] as const,
+    publicApp: ['settings', 'public-app'] as const,
+    auditLogs: (page: number, pageSize: number) =>
+      ['settings', 'audit-logs', page, pageSize] as const,
   },
 }

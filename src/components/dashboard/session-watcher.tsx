@@ -22,7 +22,7 @@ export function SessionWatcher({ expiresAt }: SessionWatcherProps) {
           duration: timeout,
           action: {
             label: 'Закрыть',
-            onClick: toast.dismiss,
+            onClick: () => toast.dismiss(),
           },
           style:{color:'orange'}
         }

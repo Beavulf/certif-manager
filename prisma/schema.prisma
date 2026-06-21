@@ -38,6 +38,7 @@ enum AuditAction {
   login
   sendNotification
   editCertificate
+  editSettings
 }
 
 // ───── MODELS ─────
@@ -133,6 +134,23 @@ model NotificationSettings {
   isEnabled        Boolean  @default(true)
   updatedBy        String?
   updatedAt        DateTime @updatedAt
+}
+
+model AppSettings {
+  id                    String   @id @default("default")
+  appName               String   @default("Cert Manager")
+  organizationName      String?
+  timezone              String   @default("Europe/Minsk")
+  warningDays           Int      @default(30)
+  criticalDays          Int      @default(7)
+  maxFileSizeMb         Int      @default(10)
+  allowedCertTypes      String[] @default([".cer", ".p7b"])
+  allowedDocTypes       String[] @default([".pdf", ".docx", ".doc"])
+  cronCheckTime         String   @default("08:00")
+  adEmailDomain         String?
+  auditLogRetentionDays Int      @default(365)
+  updatedBy             String?
+  updatedAt             DateTime @updatedAt
 }
 
 model AuditLog {

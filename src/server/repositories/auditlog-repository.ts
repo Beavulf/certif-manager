@@ -40,6 +40,14 @@ export function createAuditLogRepository(db: DbClient = prisma) {
         handlePrismaError(error);
       }
     },
+
+    async count(args?: Prisma.AuditLogCountArgs): Promise<number> {
+      try {
+        return await db.auditLog.count(args);
+      } catch (error) {
+        handlePrismaError(error);
+      }
+    },
   } as const;
 }
 

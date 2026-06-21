@@ -13,6 +13,9 @@ import { QUERY_CONFIG } from '@/constants/query-config';
 import { CertificateFields } from '@/types/certificate-types';
 import uploadCertificateToEmployeeAction, { uploadCertificateAndSyncADUserAction } from '@/server/actions/certificate/upload-certificate-action';
 import { updateCertificateEmployeeAction } from '@/server/actions/certificate/update-certificate-employee-action';
+import { updateCertificateNotesAction } from '@/server/actions/certificate/update-certificate-notes-action';
+import { getCertificateDownloadUrlAction } from '@/server/actions/certificate/get-certificate-download-url-action';
+import { bulkDeleteCertificatesAction } from '@/server/actions/certificate/bulk-delete-certificates-action';
 
 /**
  * Хук для загрузки сертификата сотрудника.
@@ -74,9 +77,14 @@ export function useUploadCertificate(
 }
 
 // получение списка сертификатов всех либо по фильтру переданному
-const WITHOUT_FIELDS = [CertificateFields.id, CertificateFields.status, CertificateFields.certType, CertificateFields.employeeId]
-const DEFAULT_FIELDS = Object.values(CertificateFields).filter(field=>
-  !WITHOUT_FIELDS.includes(field)
+const WITHOUT_FIELDS = new Set<string>([
+  CertificateFields.id,
+  CertificateFields.status,
+  CertificateFields.certType,
+  CertificateFields.employeeId,
+]);
+const DEFAULT_FIELDS = Object.values(CertificateFields).filter(
+  (field) => !WITHOUT_FIELDS.has(field),
 );
 export function useGetCertificatesAll(
   {
@@ -127,7 +135,13 @@ export function useGetCertificatesAll(
   return useQuery({
     queryKey: finalQueryKey,
     queryFn: async () => {
-      const result = await getCertificatesByFindMany({ where, orderBy: {uploadedAt: 'desc'} });
+      const result = await getCertificatesByFindMany({
+        where,
+        orderBy: { uploadedAt: 'desc' },
+        include: {
+          employee: { select: { id: true, fullName: true } },
+        },
+      });
       if (!result.success) { throw result; }
       return result.data as CertificatesWithIncludes[];
     },
@@ -186,4 +200,47 @@ export function useDeleteCertificate() {
       queryClient.invalidateQueries({ queryKey: queryKeys.certificates.all })
     },
   })
+}
+
+export function useBulkDeleteCertificates() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const result = await bulkDeleteCertificatesAction(ids);
+      if (!result.success) throw result;
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.certificates.all });
+    },
+  });
+}
+
+export function useUpdateCertificateNotes() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { certificateId: string; notes: string | null }) => {
+      const result = await updateCertificateNotesAction(input);
+      if (!result.success) throw result;
+      return result.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.certificates.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.certificates.detail(variables.certificateId),
+      });
+    },
+  });
+}
+
+export function useDownloadCertificate() {
+  return useMutation({
+    mutationFn: async (certificateId: string) => {
+      const result = await getCertificateDownloadUrlAction(certificateId);
+      if (!result.success) throw result;
+      return result.data;
+    },
+  });
 }

@@ -1,52 +1,40 @@
-import { FileType } from "@/generated/prisma/client";
-
-import { z } from 'zod'
-import { UPLOAD_FILE_CONFIG as fileConfig, CERT_FILE_TYPES } from "@/constants/upload-config";
+import { FileType } from '@/generated/prisma/client';
+import { z } from 'zod';
 
 export const uploadCertificateSchema = z.object({
   employeeId: z
     .string({ error: 'employeeId обязателен' })
-    .uuid({version: "v4", error: 'employeeId должен быть UUID'})
+    .uuid({ version: 'v4', error: 'employeeId должен быть UUID' })
     .min(1, 'employeeId не может быть пустым')
     .optional(),
 
   file: z
     .instanceof(File, { message: 'Файл обязателен' })
-    .refine(f => f.size > 0, 'Файл пустой')
-    .refine(f => f.size <= fileConfig.MAX_FILE_SIZE, 'Файл превышает 10MB')
-    .refine(
-      f => f.name.toLocaleLowerCase().endsWith(CERT_FILE_TYPES.cer) || f.name.toLocaleLowerCase().endsWith(CERT_FILE_TYPES.p7b),
-      'Допустимы только .cer и .p7b файлы'
-    ),
-  
+    .refine((f) => f.size > 0, 'Файл пустой'),
+
   notes: z
     .string('notes должен быть строкой')
     .max(255, 'notes максимум 255 символов')
     .optional(),
-})
+});
 
 export const uploadDocumentSchema = z.object({
   certificateId: z
     .string({ error: 'certificateId обязателен' })
-    .uuid({version: "v4"})
+    .uuid({ version: 'v4' })
     .min(1, 'certificateId не может быть пустым'),
 
   file: z
     .instanceof(File, { message: 'Файл обязателен' })
-    .refine(f => f.size > 0, 'Файл пустой')
-    .refine(f => f.size <= fileConfig.MAX_FILE_SIZE, 'Файл превышает 10MB')
-    .refine(
-      (f) => {
-        const ext = f.name.split('.').pop()?.toLowerCase();
-        return ext !== undefined && Object.values(FileType).includes(ext as FileType);
-      },
-      'Допустимы только .doc, .docx и .pdf файлы'
-    )
-    .transform((f) => ({
-      ...f,
-      fileType: f.name.split('.').pop()!.toLowerCase() as FileType,
-    })),
-})
+    .refine((f) => f.size > 0, 'Файл пустой'),
+});
 
-// Тип автоматически выводится из схемы — не нужно писать интерфейс вручную!
-export type UploadCertificateInput = z.infer<typeof uploadCertificateSchema>
+export type UploadCertificateInput = z.infer<typeof uploadCertificateSchema>;
+
+export function resolveDocumentFileType(fileName: string): FileType | null {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  if (!ext) return null;
+  return Object.values(FileType).includes(ext as FileType)
+    ? (ext as FileType)
+    : null;
+}

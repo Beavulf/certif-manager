@@ -15,4 +15,8 @@ export const auditlogService = {
     const auditLogs = await auditLogRepository.findMany(args);
     return auditLogs;
   },
+
+  async count(args?: Prisma.AuditLogCountArgs): Promise<number> {
+    return auditLogRepository.count(args);
+  },
 }

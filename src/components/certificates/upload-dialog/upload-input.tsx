@@ -5,7 +5,15 @@ import { Upload } from "lucide-react";
 import { useCallback, useRef, useState } from "react"
 
 
-export function UploadInput({ addFiles }: { addFiles: (files: FileList | File[]) => void }) {
+export function UploadInput({
+  addFiles,
+  acceptExtensions,
+  maxSizeMb,
+}: {
+  addFiles: (files: FileList | File[]) => void;
+  acceptExtensions: string[];
+  maxSizeMb: number;
+}) {
   const [isDragging, setIsDragging] = useState(false);
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -66,13 +74,13 @@ export function UploadInput({ addFiles }: { addFiles: (files: FileList | File[])
           </p>
         </div>
         <p className="text-xs text-muted-foreground">
-          .cer, .p7b — один или несколько файлов
+          {acceptExtensions.join(', ')} — до {maxSizeMb} МБ каждый
         </p>
       </div>
       <input
         ref={inputRef}
         type="file"
-        accept=".cer,.p7b"
+        accept={acceptExtensions.join(',')}
         multiple
         className="sr-only"
         onChange={(e) => {

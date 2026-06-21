@@ -1,6 +1,3 @@
-import { Plus } from 'lucide-react';
-
-import { Button } from '@/components/ui/button';
 
 type DashboardHeaderProps = {
   title: string;
@@ -26,11 +23,6 @@ export function DashboardHeader({
             </p>
           ) : null}
         </div>
-
-        {/* <Button className="h-11 px-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer">
-          <Plus className="size-4" />
-          Добавить сертификат
-        </Button> */}
       </div>
     </header>
   );

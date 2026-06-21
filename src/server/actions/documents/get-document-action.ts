@@ -1,92 +1,91 @@
-import { getDocumentByFilterSchema, getDocumentByIdSchema } from "@/schemas/get-document-schema"
-import { mapErrorToSafeResult } from "@/server/errors/map-error";
-import { documentService } from "@/server/services/document-service";
+'use server';
 
-export async function getDocumentsByCertIdAction(
-  certificateId: string
-) {
-  const parsed = getDocumentByIdSchema.safeParse({ 
-    id: certificateId
-  })
-  
+import { getDocumentByFilterSchema, getDocumentByIdSchema } from '@/schemas/get-document-schema';
+import { requireAuth } from '@/lib/session-helper';
+import { mapErrorToSafeResult } from '@/server/errors/map-error';
+import { documentService } from '@/server/services/document-service';
+
+export async function getDocumentsByCertIdAction(certificateId: string) {
+  await requireAuth();
+
+  const parsed = getDocumentByIdSchema.safeParse({
+    id: certificateId,
+  });
+
   if (!parsed.success) {
     return {
       success: false,
       error: 'Ошибка валидации',
-      fieldErrors: parsed.error.flatten().fieldErrors
-    }  
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
   }
 
-  const { id } = parsed.data;
-
   try {
-    const documents = await documentService.findByCertificateId(id);
-    return { success: true, data: documents }
-  } catch(error) {
-    return mapErrorToSafeResult(error)
+    const documents = await documentService.findByCertificateId(parsed.data.id);
+    return { success: true, data: documents };
+  } catch (error) {
+    return mapErrorToSafeResult(error);
   }
 }
 
-export async function getDocumentsByIdAction(
-  documentId: string
-) {
-  const parsed = getDocumentByIdSchema.safeParse({ 
-    id: documentId
-  })
-  
+export async function getDocumentsByIdAction(documentId: string) {
+  await requireAuth();
+
+  const parsed = getDocumentByIdSchema.safeParse({
+    id: documentId,
+  });
+
   if (!parsed.success) {
     return {
       success: false,
       error: 'Ошибка валидации',
-      fieldErrors: parsed.error.flatten().fieldErrors
-    }  
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
   }
 
-  const { id } = parsed.data;
-
   try {
-    const documents = await documentService.findById(id);
-    return { success: true, data: documents }
-  } catch(error) {
-    return mapErrorToSafeResult(error)
+    const documents = await documentService.findById(parsed.data.id);
+    return { success: true, data: documents };
+  } catch (error) {
+    return mapErrorToSafeResult(error);
   }
 }
 
-export async function getDocumentsByFilterAction(
-  formData: FormData
-) {
-  const filterKeys = ["fileKey", "fileName", "fileType", "uploadedBy"];
+export async function getDocumentsByFilterAction(formData: FormData) {
+  await requireAuth();
+
+  const filterKeys = ['fileKey', 'fileName', 'fileType', 'uploadedBy'];
   const filterData = Object.fromEntries(
-    filterKeys.map((key) => [key, formData.get(key)])
+    filterKeys.map((key) => [key, formData.get(key)]),
   );
 
-  const parsed = getDocumentByFilterSchema.safeParse({ filterData })
-  
+  const parsed = getDocumentByFilterSchema.safeParse({ filterData });
+
   if (!parsed.success) {
     return {
       success: false,
       error: 'Ошибка валидации',
-      fieldErrors: parsed.error.flatten().fieldErrors
-    }  
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
   }
 
   const where = Object.fromEntries(
-    Object.entries(parsed.data).filter(([_, v]) => v != null && v !== "")
+    Object.entries(parsed.data).filter(([, value]) => value != null && value !== ''),
   );
 
   try {
     const documents = await documentService.findMany({
       where,
       include: {
-        certificate: true
+        certificate: true,
       },
       orderBy: {
-        uploadedAt: 'desc'
-      }
+        uploadedAt: 'desc',
+      },
     });
-    
-    return { success: true, data: documents }
-  } catch(error) {
-    return mapErrorToSafeResult(error)
+
+    return { success: true, data: documents };
+  } catch (error) {
+    return mapErrorToSafeResult(error);
   }
 }

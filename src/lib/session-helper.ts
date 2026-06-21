@@ -12,6 +12,11 @@ type JwtPayload = {
   exp?: number;
 };
 
+type AuthenticatedUser = {
+  username: string;
+  exp: number;
+};
+
 export async function getAccessToken(): Promise<string | null>{
   const cookieStore = await cookies();
   return cookieStore.get(COOKIE_INFO.name)?.value ?? null;
@@ -42,7 +47,7 @@ export async function isTokenExpired(): Promise<boolean> {
   return payload.exp * 1000 <= Date.now();
 }
 
-export async function getSessionUser(): Promise<JwtPayload | null> {
+export async function getSessionUser(): Promise<AuthenticatedUser | null> {
   const payload = await getTokenPayload();
 
   if (!payload?.username) {
@@ -59,7 +64,7 @@ export async function getSessionUser(): Promise<JwtPayload | null> {
   };
 }
 
-export async function requireAuth(): Promise<JwtPayload> {
+export async function requireAuth(): Promise<AuthenticatedUser> {
   const user = await getSessionUser();
 
   if (!user) {

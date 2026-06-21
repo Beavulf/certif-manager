@@ -6,6 +6,7 @@ import { auditlogService } from "@/server/services/auditlog-service";
 import { certificateService } from "@/server/services/certificate-service";
 import type { SafeResult } from "@/types/safe-result-types";
 import { requireAuth } from "@/lib/session-helper";
+import { validateCertificateUpload } from '@/lib/upload-validation';
 import type { Certificate } from "@/generated/prisma/browser";
 
 export default async function uploadCertificateToEmployeeAction(
@@ -36,6 +37,15 @@ export default async function uploadCertificateToEmployeeAction(
       error: 'Ошибка валидации',
       fieldErrors: fields,
     }
+  }
+
+  const fileError = await validateCertificateUpload(parsed.data.file);
+  if (fileError) {
+    return {
+      success: false,
+      error: fileError,
+      fieldErrors: { file: [fileError] },
+    };
   }
 
   try {
@@ -93,6 +103,15 @@ export async function uploadCertificateAndSyncADUserAction(
       error: 'Ошибка валидации',
       fieldErrors: fields,
     }
+  }
+
+  const fileError = await validateCertificateUpload(parsed.data.file);
+  if (fileError) {
+    return {
+      success: false,
+      error: fileError,
+      fieldErrors: { file: [fileError] },
+    };
   }
 
   try { 

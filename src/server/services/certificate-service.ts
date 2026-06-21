@@ -9,6 +9,8 @@ import { parseCert } from "@/minio/parse-cert";
 import { deleteFile, fileExists, uploadFile } from "@/minio/minio";
 import prisma from "@/lib/prisma";
 import { getEmployeeInfoFromAD } from "./graphql-service";
+import { getAdEmailDomain } from '@/lib/app-settings-helpers';
+import { appSettingsService } from '@/server/services/app-settings-service';
 import type { SafeResult } from "@/types/safe-result-types";
 
 export const certificateService = {
@@ -192,7 +194,18 @@ export const certificateService = {
     
     const { cn, sAMAccountName, title, department } = employeeInfo.data[0];
 
-    const email = sAMAccountName+'@'+process.env.AD_EMAIL_DOMAIN;
+    const appSettings = await appSettingsService.getOrCreate();
+    const emailDomain = getAdEmailDomain(appSettings);
+    if (!emailDomain) {
+      return {
+        success: false,
+        error: 'Домен email не настроен. Укажите AD Email Domain в настройках или переменной AD_EMAIL_DOMAIN',
+        code: 'BAD_REQUEST',
+        fieldErrors: {},
+      };
+    }
+
+    const email = `${sAMAccountName}@${emailDomain}`;
     const newEmployee = await employeeService.create({
       fullName: cn,
       email: email,
@@ -265,8 +278,7 @@ export const certificateService = {
     const employee = await employeeService.findByIdOrThrow(employeeId);
 
     if (
-      certificate.subjectCN.trim().toLowerCase() !==
-      employee.fullName.trim().toLowerCase()
+      certificate.subjectCN.trim().toLowerCase() !== employee.fullName.trim().toLowerCase()
     ) {
       throw new BadRequestError(
         "ФИО в сертификате не совпадает с ФИО сотрудника"
@@ -328,5 +340,12 @@ export const certificateService = {
     const certificate = await this.findByIdOrThrow(id);
     const documents = await documentRepository.getByCertificateId(certificate.id);
     return documents;
-  }
+  },
+
+  async updateNotes(id: string, notes: string | null): Promise<Certificate> {
+    await this.findByIdOrThrow(id);
+    return await certificateRepository.updateById(id, {
+      notes: notes?.trim() ? notes.trim() : null,
+    });
+  },
 }

@@ -6,18 +6,14 @@ import { auditlogService } from "@/server/services/auditlog-service";
 
 export async function checkExpiringCertificates() {
   
-  const notifySetting = await notificationSettingsService.findFirst({
-    where: {
-      isEnabled: true,
-    },
-  })
-  if (!notifySetting) { 
-    console.warn('❌ Настройки уведомлений не найдены')
+  const notifySetting = await notificationSettingsService.getOrCreate();
+  if (!notifySetting.isEnabled) {
+    console.warn('❌ Уведомления отключены')
 
     await auditlogService.log({
       action: 'sendNotification',
       entityType: 'notificationSettings',
-      displayName: 'Настройки уведомлений не найдены, при попытке проверки сертификатов',
+      displayName: 'Уведомления отключены, проверка сертификатов пропущена',
     })
     return; 
   }
