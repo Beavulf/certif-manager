@@ -2,7 +2,6 @@
 
 import { FileBadge2, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -17,6 +16,7 @@ import {
   type CertificateGroupBy,
 } from '@/lib/certificate-table-utils';
 import { DEFAULT_EXPIRY_THRESHOLDS } from '@/lib/certificate-expiry';
+import { showActionError, showActionSuccess } from '@/lib/toast-messages';
 import { usePublicAppSettings } from '@/hooks/use-settings';
 import type { Certificate } from '@/generated/prisma/client';
 import type { SafeResult } from '@/types/safe-result-types';
@@ -42,12 +42,6 @@ const FILTER_FIELDS = [
   { label: 'Примечание', value: CertificateFields.notes },
   { label: 'Статус', value: CertificateFields.status },
 ];
-
-function getMutationErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  const err = error as { error?: string };
-  return err.error ?? 'Не удалось выполнить операцию';
-}
 
 export function CertificatesPage({
   initial,
@@ -91,11 +85,16 @@ export function CertificatesPage({
 
   const handleDeleteCertificate = async (id: string) => {
     try {
-      await mutateAsync(id);
+      const deleted = await mutateAsync(id);
+      showActionSuccess(
+        'Сертификат удалён',
+        deleted
+          ? `${deleted.subjectCN} · серийный номер ${deleted.serialNumber}`
+          : undefined,
+      );
       setSelectedRowKeys((prev) => prev.filter((key) => key !== id));
-      toast.success('Сертификат успешно удален');
     } catch (err) {
-      toast.error(getMutationErrorMessage(err));
+      showActionError(err, 'Удаление сертификата', 'Не удалось удалить сертификат');
     }
   };
 
@@ -103,27 +102,43 @@ export function CertificatesPage({
     try {
       const result = await bulkDelete(selectedRowKeys);
       if (!result) return;
-      toast.success(`Удалено сертификатов: ${result.deletedCount}`);
+
+      showActionSuccess(
+        'Массовое удаление завершено',
+        `Удалено сертификатов: ${result.deletedCount}`,
+      );
+
       if (result.failedIds.length > 0) {
-        toast.error(`Не удалось удалить: ${result.failedIds.length}`);
+        showActionError(
+          {
+            success: false,
+            error: `Не удалось удалить ${result.failedIds.length} из ${selectedRowKeys.length} сертификатов`,
+          },
+          'Массовое удаление',
+          'Часть сертификатов осталась в системе',
+        );
         setSelectedRowKeys(result.failedIds);
       } else {
         setSelectedRowKeys([]);
       }
     } catch (err) {
-      toast.error(getMutationErrorMessage(err));
+      showActionError(err, 'Массовое удаление сертификатов', 'Не удалось удалить выбранные сертификаты');
     }
   };
 
   useEffect(() => {
     if (error) {
-      toast.error(getMutationErrorMessage(error));
+      showActionError(error, 'Загрузка списка сертификатов', 'Не удалось получить список сертификатов');
     }
   }, [error]);
 
   useEffect(() => {
     if (!initial.success) {
-      toast.error(initial.error);
+      showActionError(
+        initial,
+        'Загрузка списка сертификатов',
+        'Не удалось получить список сертификатов',
+      );
     }
   }, [initial]);
 

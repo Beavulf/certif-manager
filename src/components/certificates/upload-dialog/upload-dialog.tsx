@@ -2,7 +2,8 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { Loader2, Square, Upload, X } from 'lucide-react'
-import { toast } from 'sonner'
+
+import { showActionError, showActionSuccess, showValidationError } from '@/lib/toast-messages'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -91,7 +92,7 @@ export function UploadDialog() {
     for (const file of list) {
       const error = validateFile(file, uploadLimits)
       if (error) {
-        toast.error(`${file.name}: ${error}`)
+        showValidationError('Файл не прошёл проверку', `${file.name}: ${error}`)
         continue
       }
       valid.push(file)
@@ -121,7 +122,10 @@ export function UploadDialog() {
     cancelRef.current = false;
     const trimmedEmployeeId = employeeId.trim()
     if (files.length === 0) {
-      toast.error('Добавьте хотя бы один файл сертификата')
+      showValidationError(
+        'Нет файлов для загрузки',
+        'Добавьте хотя бы один файл сертификата (.cer или .p7b)',
+      )
       return
     }
 
@@ -132,7 +136,10 @@ export function UploadDialog() {
 
     for (const file of files) {
       if (cancelRef.current) {
-        toast.error('Загрузка прервана')
+        showValidationError(
+          'Загрузка прервана',
+          `Загружено ${uploadedCount} из ${files.length} файлов до отмены`,
+        )
         break;
       }
       const formData = new FormData()
@@ -174,17 +181,26 @@ export function UploadDialog() {
     if (uploadedCount > 0) {
       const label =
         uploadedCount === 1
-          ? 'Сертификат успешно загружен'
+          ? 'Сертификат загружен'
           : `Загружено сертификатов: ${uploadedCount}`
-      toast.success(label)
+
+      showActionSuccess(
+        label,
+        failed.length > 0
+          ? `С ошибками: ${failed.length}. Подробности — в диалоге ошибок`
+          : undefined,
+      )
     }
 
     if (failed.length > 0) {
       setUploadFailures(failed)
-      toast.error(
+      const firstError = failed[0]?.error
+      showActionError(
+        { success: false, error: firstError ?? 'Ошибка обработки файла' },
         failed.length === 1
-          ? 'Не удалось загрузить 1 сертификат'
-          : `Не удалось загрузить сертификатов: ${failed.length}`
+          ? `Загрузка файла ${failed[0].fileName}`
+          : `Загрузка ${failed.length} файлов`,
+        'Не удалось загрузить сертификат',
       )
     }
 

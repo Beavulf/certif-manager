@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import type { SafeResult } from '@/types/safe-result-types'
+import { extractErrorDetails } from '@/lib/toast-messages'
 
 export type UploadFailure = {
   fileName: string
@@ -20,16 +20,12 @@ export type UploadFailure = {
 }
 
 export function getUploadErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-
-  if (error && typeof error === 'object') {
-    const result = error as SafeResult
-    const fieldError = Object.values(result.fieldErrors ?? {})
-    if (fieldError.length > 0) return String(fieldError[0])
-    if (result.error) return result.error
-  }
-
-  return 'Не удалось загрузить файл'
+  const { message, code, fieldDetails } = extractErrorDetails(
+    error,
+    'Не удалось загрузить файл',
+  )
+  const parts = [message, fieldDetails, code].filter(Boolean)
+  return parts.join(' · ')
 }
 
 function certificatesWord(count: number): string {

@@ -9,10 +9,10 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import { useRef } from 'react';
-import { toast } from 'sonner';
+import { useEffect, useRef } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { showActionError, showActionSuccess } from '@/lib/toast-messages';
 import { DOC_FILE_TYPES } from '@/constants/upload-config';
 import {
   useCertificateDocuments,
@@ -31,12 +31,6 @@ function formatFileSize(bytes: number | null | undefined): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function getMutationErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  const err = error as { error?: string };
-  return err.error ?? 'Не удалось выполнить операцию';
-}
-
 const FILE_TYPE_LABELS = {
   pdf: 'PDF',
   doc: 'DOC',
@@ -53,7 +47,7 @@ export function CertificateDocumentsPanel({
   enabled = true,
 }: CertificateDocumentsPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { data: documents = [] as Document[], isPending, isError, refetch } =
+  const { data: documents = [] as Document[], isPending, isError, error, refetch } =
     useCertificateDocuments(certificateId, enabled);
   const { mutateAsync: uploadDocument, isPending: isUploading } =
     useUploadCertificateDocument(certificateId);
@@ -64,34 +58,47 @@ export function CertificateDocumentsPanel({
 
   const busy = isUploading || isDeleting || isDownloading;
 
+  useEffect(() => {
+    if (!enabled || !isError) return;
+    showActionError(
+      error,
+      'Загрузка списка документов',
+      'Не удалось получить прикреплённые файлы сертификата',
+    );
+  }, [enabled, isError, error]);
+
   const handleUpload = async (fileList: FileList | null) => {
     const file = fileList?.[0];
     if (!file) return;
 
     try {
-      await uploadDocument(file);
-      toast.success('Документ загружен');
+      const uploaded = await uploadDocument(file);
+      showActionSuccess(
+        'Документ прикреплён',
+        uploaded?.fileName ?? file.name,
+      );
     } catch (error) {
-      toast.error(getMutationErrorMessage(error));
+      showActionError(error, 'Загрузка документа к сертификату', 'Не удалось загрузить документ');
     } finally {
       if (inputRef.current) inputRef.current.value = '';
     }
   };
 
-  const handleDownload = async (documentId: string) => {
+  const handleDownload = async (documentId: string, fileName: string) => {
     try {
       await downloadDocument(documentId);
+      showActionSuccess('Документ скачан', fileName);
     } catch (error) {
-      toast.error(getMutationErrorMessage(error));
+      showActionError(error, 'Скачивание документа', 'Не удалось получить файл из хранилища');
     }
   };
 
-  const handleDelete = async (documentId: string) => {
+  const handleDelete = async (documentId: string, fileName: string) => {
     try {
       await deleteDocument(documentId);
-      toast.success('Документ удалён');
+      showActionSuccess('Документ удалён', fileName);
     } catch (error) {
-      toast.error(getMutationErrorMessage(error));
+      showActionError(error, 'Удаление документа', 'Не удалось удалить прикреплённый файл');
     }
   };
 
@@ -187,7 +194,7 @@ export function CertificateDocumentsPanel({
                   type="button"
                   aria-label="Скачать документ"
                   disabled={busy}
-                  onClick={() => handleDownload(doc.id)}
+                  onClick={() => handleDownload(doc.id, doc.fileName)}
                   className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
                 >
                   <Download className="size-3.5" />
@@ -203,7 +210,7 @@ export function CertificateDocumentsPanel({
                     okText="Удалить"
                     cancelText="Отмена"
                     okButtonProps={{ danger: true, loading: isDeleting }}
-                    onConfirm={() => handleDelete(doc.id)}
+                    onConfirm={() => handleDelete(doc.id, doc.fileName)}
                   >
                     <span className="inline-flex">
                       <button

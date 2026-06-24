@@ -11,9 +11,9 @@ import {
 import { Loader2, Mail, Play, PlugZap } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
 
 import { Input as UiInput } from '@/components/ui/input';
+import { showValidationError } from '@/lib/toast-messages';
 import { Button } from '@/components/ui/button';
 import {
   useSendTestEmail,
@@ -88,19 +88,21 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
       const payload = toSavePayload(values);
 
       if (!payload.daysBeforeExpiry.length) {
-        toast.error(`Укажите хотя бы один день (1–${MAX_NOTIFICATION_DAYS}) в поле «Дни до истечения»`);
+        showValidationError(
+          'Не указаны дни для уведомлений',
+          `В поле «Дни до истечения» укажите хотя бы одно значение от 1 до ${MAX_NOTIFICATION_DAYS}`,
+        );
         return;
       }
 
       await mutateAsync(payload);
     } catch (error) {
-      const err = error as { error?: string; errorFields?: unknown };
+      const err = error as { errorFields?: unknown };
       if (err?.errorFields) {
-        toast.error('Проверьте поля формы');
-        return;
-      }
-      if (err?.error) {
-        toast.error(err.error);
+        showValidationError(
+          'Форма содержит ошибки',
+          'Проверьте SMTP-хост, порт, email отправителя и список дней',
+        );
       }
     }
   };
@@ -114,7 +116,10 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
     const daysBeforeExpiry = testDays.length > 0 ? testDays : mainDays;
 
     if (!daysBeforeExpiry.length) {
-      toast.error('Укажите дни в тестовом поле или в основной настройке');
+      showValidationError(
+        'Не указаны дни для проверки',
+        'Заполните тестовое поле или основную настройку «Дни до истечения»',
+      );
       return;
     }
 
@@ -281,7 +286,9 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
                   variant="outline"
                   size="sm"
                   disabled={verifySmtp.isPending}
-                  onClick={() => verifySmtp.mutateAsync(getSavePayload())}
+                  onClick={() => {
+                    void verifySmtp.mutateAsync(getSavePayload()).catch(() => undefined);
+                  }}
                 >
                   {verifySmtp.isPending ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -305,12 +312,14 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
                   size="sm"
                   className="shrink-0"
                   disabled={sendTest.isPending || !testEmail.trim()}
-                  onClick={() =>
-                    sendTest.mutateAsync({
-                      testEmail: testEmail.trim(),
-                      settings: getSavePayload(),
-                    })
-                  }
+                  onClick={() => {
+                    void sendTest
+                      .mutateAsync({
+                        testEmail: testEmail.trim(),
+                        settings: getSavePayload(),
+                      })
+                      .catch(() => undefined);
+                  }}
                 >
                   {sendTest.isPending ? (
                     <Loader2 className="size-4 animate-spin" />
@@ -368,7 +377,9 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
               variant="outline"
               size="sm"
               disabled={runCheck.isPending}
-              onClick={() => void runManualCheck()}
+              onClick={() => {
+                void runManualCheck().catch(() => undefined);
+              }}
             >
               {runCheck.isPending ? (
                 <Loader2 className="size-4 animate-spin" />

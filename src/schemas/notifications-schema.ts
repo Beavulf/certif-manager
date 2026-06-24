@@ -16,7 +16,8 @@ export const runNotificationCheckSchema = z.object({
   daysBeforeExpiry: z
     .array(z.coerce.number().int().min(MIN_NOTIFICATION_DAYS).max(MAX_NOTIFICATION_DAYS))
     .min(1, 'Укажите хотя бы один день')
-    .max(10, 'Не более 10 значений'),
+    .max(10, 'Не более 10 значений')
+    .optional(),
   ignoreAlreadySent: z.boolean().optional(),
   useTestDays: z.boolean().optional(),
 });

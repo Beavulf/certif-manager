@@ -8,6 +8,8 @@ import { COOKIE_INFO } from "@/constants/cookie";
 import { redirect } from "next/navigation";
 import { getAccessToken, requireAuth } from "@/lib/session-helper";
 import { employeeADResponseSchema } from "@/schemas/employee-schema";
+import { auditlogService } from "@/server/services/auditlog-service";
+import { AUDIT_ENTITY } from "@/types/auditlog-types";
 
 export async function getAuthToken(
   username: string, password: string
@@ -76,6 +78,13 @@ export async function getAuthToken(
       sameSite: 'lax',
       path: '/',
       maxAge: COOKIE_INFO.maxAge,
+    });
+
+    await auditlogService.log({
+      action: 'login',
+      entityType: AUDIT_ENTITY.system,
+      displayName: 'Вход в систему',
+      adUsername: username,
     });
 
     return {

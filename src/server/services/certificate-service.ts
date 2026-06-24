@@ -1,6 +1,6 @@
 import type { CertificatesWithIncludes } from "@/types/certificate-types";
 import { certificateRepository, createCertificateRepository } from "../repositories/certificate-repository";
-import type { Prisma, Certificate, Document } from "@/generated/prisma/client";
+import type { Prisma, Certificate } from "@/generated/prisma/client";
 import { AlreadyExistsError, BadRequestError, NotFoundError } from "../errors/app-error";
 import { employeeService } from "./employee-service";
 import { createDocumentRepository, documentRepository } from "../repositories/document-repository";
@@ -275,6 +275,9 @@ export const certificateService = {
 
   async assignToEmployee(certificateId: string, employeeId: string): Promise<Certificate> {
     const certificate = await this.findByIdOrThrow(certificateId);
+    if (certificate.status === 'revoked') {
+      throw new BadRequestError('Нельзя привязать отозванный сертификат к сотруднику');
+    }
     const employee = await employeeService.findByIdOrThrow(employeeId);
 
     if (
@@ -307,11 +310,6 @@ export const certificateService = {
     });
   },
 
-  async findByEmployeeId(employeeId: string):Promise<Certificate[]> {
-    const employee = await employeeService.findByIdOrThrow(employeeId, true);
-    return await certificateRepository.findByEmployeeId(employee.id);
-  },
-
   async findBySerialNumber(serialNumber: string):Promise<Certificate | null> {
     return await certificateRepository.findBySerialNumber(serialNumber);
   },
@@ -324,28 +322,26 @@ export const certificateService = {
     return true;
   },
 
-  async findBySerialNumberOrThrow(serialNumber: string):Promise<Certificate> {
-    const certificate = await certificateRepository.findBySerialNumber(serialNumber);
-    if (!certificate) {
-      throw new NotFoundError("Сертификат не найден");
-    }
-    return certificate;
-  },
-
   async updateMany(args: Prisma.CertificateUpdateManyArgs): Promise<Prisma.BatchPayload> {
     return await certificateRepository.updateMany(args);
-  },
-
-  async getDocuments(id: string):Promise<Document[]> {
-    const certificate = await this.findByIdOrThrow(id);
-    const documents = await documentRepository.getByCertificateId(certificate.id);
-    return documents;
   },
 
   async updateNotes(id: string, notes: string | null): Promise<Certificate> {
     await this.findByIdOrThrow(id);
     return await certificateRepository.updateById(id, {
       notes: notes?.trim() ? notes.trim() : null,
+    });
+  },
+
+  async revoke(id: string): Promise<Certificate> {
+    const certificate = await this.findByIdOrThrow(id);
+
+    if (certificate.status === 'revoked') {
+      throw new BadRequestError('Сертификат уже отозван');
+    }
+
+    return await certificateRepository.updateById(id, {
+      status: 'revoked',
     });
   },
 }

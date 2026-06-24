@@ -4,7 +4,6 @@ import { checkExpiringCertificates } from '@/lib/notifications';
 import { requireAuth } from '@/lib/session-helper';
 import { runNotificationCheckSchema } from '@/schemas/notifications-schema';
 import { mapErrorToSafeResult } from '@/server/errors/map-error';
-import { auditlogService } from '@/server/services/auditlog-service';
 import type { CheckExpiringResult } from '@/types/notification-check-types';
 import type { SafeResult } from '@/types/safe-result-types';
 
@@ -29,16 +28,7 @@ export async function runNotificationCheckAction(
       daysOverride: daysBeforeExpiry,
       ignoreAlreadySent,
       isTestRun: useTestDays ?? false,
-    });
-
-    const auditSuffix = result.isTestRun
-      ? ` [тест: ${result.checkDays.join(', ')} дн.]`
-      : '';
-
-    await auditlogService.log({
-      action: 'sendNotification',
-      entityType: 'notificationCheck',
-      displayName: `Ручной запуск проверки${auditSuffix}: ${result.message}`,
+      initiatedBy: 'manual',
       adUsername: session.username,
     });
 

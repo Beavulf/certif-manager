@@ -30,22 +30,11 @@ export function createCertificateRepository(db: DbClient = prisma) {
           where: { id },
           include: {
             employee: true,
-            documents: { select: { id: true } },
+            documents: true,
           },
         });
       } catch (error) {
         handlePrismaError(error);
-      }
-    },
-
-    async findByEmployeeId(employeeId: string): Promise<Certificate[]> {
-      try {
-        return await db.certificate.findMany({ 
-          where: { employeeId },
-          orderBy: { validTo: 'asc' },
-        });
-      } catch(error) {
-        handlePrismaError(error)
       }
     },
 

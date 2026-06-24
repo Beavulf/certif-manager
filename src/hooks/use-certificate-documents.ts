@@ -30,7 +30,7 @@ export function useCertificateDocuments(certificateId: string | null, enabled = 
       if (!certificateId) throw new Error('Идентификатор сертификата не указан');
       const result = await getDocumentsByCertIdAction(certificateId);
       if (!result.success) throw result;
-      return result.data;
+      return result.data!;
     },
     enabled: Boolean(certificateId) && enabled,
     ...QUERY_CONFIG,
@@ -47,7 +47,7 @@ export function useCertificateNotificationLogs(
       if (!certificateId) throw new Error('Идентификатор сертификата не указан');
       const result = await getNotificationLogsByCertificateAction(certificateId);
       if (!result.success) throw result;
-      return result.data;
+      return result.data!;
     },
     enabled: Boolean(certificateId) && enabled,
     ...QUERY_CONFIG,
@@ -65,7 +65,7 @@ export function useUploadCertificateDocument(certificateId: string | null) {
       formData.append('file', file);
       const result = await uploadDocumentAction(formData);
       if (!result.success) throw result;
-      return result.data;
+      return result.data!;
     },
     onSuccess: () => {
       if (!certificateId) return;
@@ -86,7 +86,7 @@ export function useDeleteCertificateDocument(certificateId: string | null) {
     mutationFn: async (documentId: string) => {
       const result = await deleteDocumentByIdAction(documentId);
       if (!result.success) throw result;
-      return result.data;
+      return result.data!;
     },
     onSuccess: () => {
       if (!certificateId) return;
@@ -105,7 +105,7 @@ export function useDownloadCertificateDocument() {
     mutationFn: async (documentId: string) => {
       const result = await getDocumentDownloadUrlAction(documentId);
       if (!result.success) throw result;
-      return result.data;
+      return result.data!;
     },
     onSuccess: ({ url, fileName }) => {
       downloadFromUrl(url, fileName);

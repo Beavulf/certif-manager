@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2, Clock3, FileBadge2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3, FileBadge2, ShieldBan } from 'lucide-react';
 
 import type { CertificateStats } from '@/lib/certificate-table-utils';
 import { cn } from '@/lib/utils';
@@ -39,11 +39,18 @@ const ITEMS = [
     className: 'border-red-200/80 bg-red-50/60 text-red-900',
     iconClassName: 'text-red-700',
   },
+  {
+    key: 'revoked',
+    label: 'Отозваны',
+    icon: ShieldBan,
+    className: 'border-slate-200/80 bg-slate-50/80 text-slate-900',
+    iconClassName: 'text-slate-600',
+  },
 ] as const;
 
 export function CertificatesStats({ stats, loading = false }: CertificatesStatsProps) {
   return (
-    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
       {ITEMS.map((item) => {
         const Icon = item.icon;
         const value = stats[item.key];

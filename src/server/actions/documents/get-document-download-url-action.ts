@@ -5,7 +5,9 @@ import { z } from 'zod';
 import { requireAuth } from '@/lib/session-helper';
 import { getPresignedUrl } from '@/minio/minio';
 import { mapErrorToSafeResult } from '@/server/errors/map-error';
+import { auditlogService } from '@/server/services/auditlog-service';
 import { documentService } from '@/server/services/document-service';
+import { AUDIT_ENTITY } from '@/types/auditlog-types';
 import type { SafeResult } from '@/types/safe-result-types';
 
 const downloadSchema = z.object({
@@ -20,7 +22,7 @@ export type DocumentDownloadPayload = {
 export async function getDocumentDownloadUrlAction(
   documentId: string,
 ): Promise<SafeResult<DocumentDownloadPayload>> {
-  await requireAuth();
+  const session = await requireAuth();
 
   const parsed = downloadSchema.safeParse({ documentId });
   if (!parsed.success) {
@@ -34,6 +36,14 @@ export async function getDocumentDownloadUrlAction(
   try {
     const document = await documentService.findByIdOrThrow(parsed.data.documentId);
     const url = await getPresignedUrl(document.fileKey);
+
+    await auditlogService.log({
+      action: 'viewCert',
+      entityType: AUDIT_ENTITY.document,
+      entityId: document.id,
+      displayName: `Скачивание документа: ${document.fileName}`,
+      adUsername: session.username,
+    });
 
     return {
       success: true,

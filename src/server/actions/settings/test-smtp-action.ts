@@ -9,6 +9,7 @@ import {
 import { mapErrorToSafeResult } from '@/server/errors/map-error';
 import { auditlogService } from '@/server/services/auditlog-service';
 import { notificationSettingsService } from '@/server/services/notification-settings-service';
+import { AUDIT_ENTITY } from '@/types/auditlog-types';
 import type { SafeResult } from '@/types/safe-result-types';
 
 export async function verifySmtpAction(
@@ -40,12 +41,19 @@ export async function verifySmtpAction(
     const result = await verifySmtpConnection(settings);
 
     if (!result.success) {
+      await auditlogService.log({
+        action: 'editSettings',
+        entityType: AUDIT_ENTITY.notificationSettings,
+        displayName: `Ошибка проверки SMTP: ${result.error ?? 'Не удалось подключиться'}`,
+        adUsername: session.username,
+      });
+
       return { success: false, error: result.error ?? 'Не удалось подключиться' };
     }
 
     await auditlogService.log({
       action: 'editSettings',
-      entityType: 'notificationSettings',
+      entityType: AUDIT_ENTITY.notificationSettings,
       displayName: 'Успешная проверка SMTP-соединения',
       adUsername: session.username,
     });
@@ -98,12 +106,19 @@ export async function sendTestEmailAction(input: {
     const result = await sendTestEmail(parsed.data.testEmail, settings);
 
     if (!result.success) {
+      await auditlogService.log({
+        action: 'sendNotification',
+        entityType: AUDIT_ENTITY.notificationSettings,
+        displayName: `Ошибка отправки тестового письма на ${parsed.data.testEmail}: ${result.error ?? 'Не удалось отправить'}`,
+        adUsername: session.username,
+      });
+
       return { success: false, error: result.error ?? 'Не удалось отправить' };
     }
 
     await auditlogService.log({
       action: 'sendNotification',
-      entityType: 'notificationSettings',
+      entityType: AUDIT_ENTITY.notificationSettings,
       displayName: `Отправлено тестовое письмо на ${parsed.data.testEmail}`,
       adUsername: session.username,
     });

@@ -6,6 +6,7 @@ import { updateAppSettingsSchema } from '@/schemas/settings-schema';
 import { mapErrorToSafeResult } from '@/server/errors/map-error';
 import { auditlogService } from '@/server/services/auditlog-service';
 import { appSettingsService } from '@/server/services/app-settings-service';
+import { AUDIT_ENTITY } from '@/types/auditlog-types';
 import prisma from '@/lib/prisma';
 import type { AppSettings } from '@/generated/prisma/client';
 import type { SafeResult } from '@/types/safe-result-types';
@@ -63,7 +64,7 @@ export async function updateAppSettingsAction(
 
     await auditlogService.log({
       action: 'editSettings',
-      entityType: 'appSettings',
+      entityType: AUDIT_ENTITY.appSettings,
       entityId: updated.id,
       displayName: 'Обновлены общие настройки приложения',
       adUsername: username,

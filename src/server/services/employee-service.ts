@@ -1,17 +1,15 @@
 import { employeeRepository } from "../repositories/employee-repository";
 import type { EmployeesWithIncludes } from "@/types/employee-types";
-import type { Prisma, Employee, Certificate } from "@/generated/prisma/client";
+import type { Prisma, Employee } from "@/generated/prisma/client";
 import { BadRequestError, NotFoundError } from "../errors/app-error";
 import type { EmployeeGetPayload } from "@/generated/prisma/models";
-import { certificateService } from "./certificate-service";
 
 export const employeeService = {
 
   async findMany(
     args?: Prisma.EmployeeFindManyArgs
-  ):Promise<EmployeesWithIncludes[]> {
-    const certificates = await employeeRepository.findMany(args);
-    return certificates;
+  ): Promise<EmployeesWithIncludes[]> {
+    return await employeeRepository.findMany(args);
   },
 
   async create(data: Prisma.EmployeeCreateInput) {
@@ -37,7 +35,7 @@ export const employeeService = {
     return updatedEmployee;
   },
 
-  async deleteById(id: string):Promise<Employee> {
+  async deleteById(id: string): Promise<Employee> {
     const employee = await this.findByIdOrThrow(id);
     const deletedEmployee = await employeeRepository.deleteById(employee.id);
     if (!deletedEmployee) {
@@ -46,7 +44,7 @@ export const employeeService = {
     return deletedEmployee;
   },
 
-  async findByIdOrThrow(id: string, includeCert: boolean = false):Promise<EmployeeGetPayload<{include: {certificates: true}}> | Employee> {
+  async findByIdOrThrow(id: string, includeCert: boolean = false): Promise<EmployeeGetPayload<{include: {certificates: true}}> | Employee> {
     const include: Prisma.EmployeeInclude = { certificates: true }
     const employee = await employeeRepository.findById(id, includeCert ? include : undefined);
     if (!employee) {
@@ -55,58 +53,8 @@ export const employeeService = {
     return employee;
   },
 
-  async findById(id: string, includeCert: boolean = false):Promise<Employee | null> {
+  async findById(id: string, includeCert: boolean = false): Promise<Employee | null> {
     const include: Prisma.EmployeeInclude = { certificates: true }
     return await employeeRepository.findById(id, includeCert ? include : undefined);
   },
-
-  async findByAdUsername(adUsername: string, includeCert: boolean = false):Promise<Employee> {
-    const include: Prisma.EmployeeInclude = { certificates: true }
-    const employee = await employeeRepository.findByAdUsername(adUsername, includeCert ? include : undefined);
-    if (!employee) {
-      throw new NotFoundError("Сотрудник не найден");
-    }
-    return employee;
-  },
-
-  async getEmployeeCertificates(id: string):Promise<Certificate[]> {
-    const employee = await this.findByIdOrThrow(id, true);
-    if ('certificates' in employee) {
-      return employee.certificates;
-    }
-    return [];
-  },
-
-  async assignCertificate(employeeId: string, certificateId: string):Promise<Employee> {
-    const employee = await this.findByIdOrThrow(employeeId, true);
-    const certificate = await certificateService.findByIdOrThrow(certificateId);
-
-    if ('certificates' in employee) {
-      if (employee.certificates.some(cert => cert.id === certificate.id)) {
-        throw new BadRequestError("Сертификат уже привязан к сотруднику");
-      }
-    }
-    
-    return await employeeRepository.updateById(employee.id, {
-      certificates: {
-        connect: {
-          id: certificate.id
-        }
-      }
-    });
-  },
-
-  async unassignCertificate(employeeId: string, certificateId: string) {
-    const employee = await this.findByIdOrThrow(employeeId, true);
-    const certificate = await certificateService.findByIdOrThrow(certificateId);
-
-    return await employeeRepository.updateById(employee.id, {
-      certificates: {
-        disconnect: {
-          id: certificate.id
-        }
-      }
-    });
-  }
-
 }

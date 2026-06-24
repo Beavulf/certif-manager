@@ -1,9 +1,9 @@
 'use client';
 
-import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { showLoginError } from '@/lib/toast-messages';
 import { SubmitButton } from './submit-button';
 import { getAuthToken } from '@/server/services/graphql-service';
 import { useEffect, useState } from 'react';
@@ -43,19 +43,7 @@ export function LoginFormClient() {
     const token = await getAuthToken(login, password);
     
     if (!token.success) {
-      if (token.error === 'Unauthorized') {
-        toast.error('Неверный логин или пароль', { description: 'Ошибка авторизации' });
-        return;
-      }
-      if (token.error?.includes('ETIMEDOUT')) {
-        toast.error('Вышло время ожидание ответа от сервера', { description: 'Ошибка авторизации' });
-        return;
-      }
-      if (token.error?.includes('ECONNREFUSED')) {
-        toast.error('Сервер недоступен', { description: 'Ошибка авторизации' });
-        return;
-      }
-      toast.error(token.error, { description: token.code });
+      showLoginError(token);
       return;
     }
 

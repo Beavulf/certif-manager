@@ -6,6 +6,7 @@ import { requireAuth } from '@/lib/session-helper';
 import { mapErrorToSafeResult } from '@/server/errors/map-error';
 import { auditlogService } from '@/server/services/auditlog-service';
 import deleteCertificateAction from '@/server/actions/certificate/delete-certificate-action';
+import { AUDIT_ENTITY } from '@/types/auditlog-types';
 import type { SafeResult } from '@/types/safe-result-types';
 
 const bulkDeleteSchema = z.object({
@@ -40,7 +41,7 @@ export async function bulkDeleteCertificatesAction(
   const username = session?.username;
 
   for (const id of uniqueIds) {
-    const result = await deleteCertificateAction(id);
+    const result = await deleteCertificateAction(id, { skipAudit: true });
     if (result.success) {
       deletedCount += 1;
     } else {
@@ -49,10 +50,13 @@ export async function bulkDeleteCertificatesAction(
   }
 
   if (deletedCount > 0) {
+    const failedSuffix =
+      failedIds.length > 0 ? `, не удалено: ${failedIds.length}` : '';
+
     await auditlogService.log({
       action: 'deleteCert',
-      entityType: 'certificate',
-      displayName: `Массовое удаление сертификатов: ${deletedCount} шт.`,
+      entityType: AUDIT_ENTITY.certificate,
+      displayName: `Массовое удаление сертификатов: удалено ${deletedCount} шт.${failedSuffix}`,
       adUsername: username,
     });
   }

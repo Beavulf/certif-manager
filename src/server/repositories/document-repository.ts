@@ -33,22 +33,6 @@ export function createDocumentRepository(db: DbClient = prisma) {
       }
     },
 
-    async findByFileKey(fileKey: string): Promise<Document | null> {
-      try {
-        return await db.document.findFirst({ where: { fileKey } });
-      } catch (error) {
-        handlePrismaError(error);
-      }
-    },
-
-    async updateById(id: string, data: Prisma.DocumentUpdateInput): Promise<Document> {
-      try {
-        return await db.document.update({ where: { id }, data });
-      } catch (error) {
-        handlePrismaError(error);
-      }
-    },
-
     async deleteById(id: string): Promise<Document> {
       try {
         return await db.document.delete({ where: { id } });

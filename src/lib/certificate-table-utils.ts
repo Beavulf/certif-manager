@@ -9,6 +9,7 @@ export type CertificateStats = {
   active: number;
   expiringSoon: number;
   expired: number;
+  revoked: number;
 };
 
 export type CertificateTableRow = CertificatesWithIncludes & {
@@ -37,6 +38,7 @@ export function computeCertificateStats(
       return urgency === 'warning' || urgency === 'critical';
     }).length,
     expired: data.filter((cert) => getExpiryUrgency(cert, thresholds) === 'expired').length,
+    revoked: data.filter((cert) => getExpiryUrgency(cert, thresholds) === 'revoked').length,
   };
 }
 

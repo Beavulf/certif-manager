@@ -2,6 +2,7 @@ import type { NotificationSettings } from '@/generated/prisma/client'
 import { AppError, SmtpError } from '@/server/errors/app-error'
 import { auditlogService } from '@/server/services/auditlog-service'
 import { notificationSettingsService } from '@/server/services/notification-settings-service'
+import { AUDIT_ENTITY } from '@/types/auditlog-types'
 import nodemailer from 'nodemailer'
 
 // Типы входных данных
@@ -179,8 +180,8 @@ export async function sendExpiryEmail(
     console.warn('❌ Настройки уведомлений не найдены')
     await auditlogService.log({
       action: 'sendNotification',
-      entityType: 'notificationSettings',
-      displayName: 'Ошибка отправки письма: настройки уведомлений не найдены при попытке отправить письмо',
+      entityType: AUDIT_ENTITY.notificationSettings,
+      displayName: `Ошибка отправки письма (${params.certCN} → ${params.to}): настройки уведомлений не найдены`,
     })
     
     return {
@@ -193,8 +194,8 @@ export async function sendExpiryEmail(
     console.warn('❌ SMTP не настроен')
     await auditlogService.log({
       action: 'sendNotification',
-      entityType: 'notificationSettings',
-      displayName: 'Ошибка отправки письма: отсутствуют необходимые настройки уведомлений',
+      entityType: AUDIT_ENTITY.notificationSettings,
+      displayName: `Ошибка отправки письма (${params.certCN} → ${params.to}): SMTP не настроен`,
     })
     
     return {
@@ -223,20 +224,15 @@ export async function sendExpiryEmail(
       html: buildEmailHtml(params),
     })
 
-    await auditlogService.log({
-      action: 'sendNotification',
-      entityType: 'sendMail',
-      adUsername: params.certCN,
-      displayName: `Отправлено письмо на адрес ${params.to}`,
-    })
-
     return { success: true }
   } catch (error) {
     console.error('[MAIL] Ошибка отправки письма:', error)
     await auditlogService.log({
       action: 'sendNotification',
-      entityType: 'sendMail',
-      displayName: 'Ошибка отправки письма: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'),
+      entityType: AUDIT_ENTITY.system,
+      displayName: `Ошибка отправки письма (${params.certCN} → ${params.to}): ${
+        error instanceof Error ? error.message : 'Неизвестная ошибка'
+      }`,
     })
     
     return {
@@ -257,12 +253,6 @@ export async function verifySmtpConnection(
 
     return { success: true };
   } catch (error) {
-    await auditlogService.log({
-      action: 'sendNotification',
-      entityType: 'notificationSettings',
-      displayName: `Ошибка проверки SMTP соединения: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`,
-    });
-
     return {
       success: false,
       error:

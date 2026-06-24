@@ -19,6 +19,14 @@ export const STATUS_LABELS: Record<CertStatus, string> = {
   revoked: 'Отозван',
 };
 
+export const URGENCY_LABELS: Record<ExpiryUrgency, string> = {
+  active: 'Активен',
+  warning: 'Скоро истекает',
+  critical: 'Срочно',
+  expired: 'Истёк',
+  revoked: 'Отозван',
+};
+
 export function daysUntilExpiry(validTo: Date | string): number {
   return dayjs(validTo).startOf('day').diff(dayjs().startOf('day'), 'day');
 }

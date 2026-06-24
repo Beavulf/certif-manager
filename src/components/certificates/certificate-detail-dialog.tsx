@@ -11,12 +11,13 @@ import {
   Loader2,
   Mail,
   MessageSquare,
+  ShieldBan,
   Unlink,
   User,
   UserX,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import { ConfigProvider, Popconfirm } from 'antd';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -37,6 +38,7 @@ import { cn } from '@/lib/utils';
 import {
   useDownloadCertificate,
   useGetCertificateById,
+  useRevokeCertificate,
   useUpdateCertificateEmployee,
   useUpdateCertificateNotes,
 } from '@/hooks/use-certificate';
@@ -48,6 +50,7 @@ import {
   DEFAULT_EXPIRY_THRESHOLDS,
 } from '@/lib/certificate-expiry';
 import { usePublicAppSettings } from '@/hooks/use-settings';
+import { showActionError, showActionSuccess, showValidationError } from '@/lib/toast-messages';
 
 function formatDate(value: Date | string): string {
   return dayjs(value).format('DD.MM.YYYY');
@@ -64,12 +67,6 @@ type CertificateDetailDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-function getMutationErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  const err = error as { error?: string };
-  return err.error ?? 'Не удалось выполнить операцию';
-}
-
 export function CertificateDetailDialog({
   certificateId,
   open,
@@ -85,6 +82,8 @@ export function CertificateDetailDialog({
     useUpdateCertificateNotes();
   const { mutateAsync: downloadCertificate, isPending: isDownloading } =
     useDownloadCertificate();
+  const { mutateAsync: revokeCertificate, isPending: isRevoking } =
+    useRevokeCertificate();
   const { data: appSettings } = usePublicAppSettings();
   const expiryThresholds = appSettings
     ? { warningDays: appSettings.warningDays, criticalDays: appSettings.criticalDays }
@@ -108,12 +107,11 @@ export function CertificateDetailDialog({
 
   useEffect(() => {
     if (!open || !isError) return;
-    if (error instanceof Error) {
-      toast.error(error.message);
-      return;
-    }
-    const err = error as { error?: string };
-    toast.error(err.error ?? 'Не удалось загрузить сертификат');
+    showActionError(
+      error,
+      'Загрузка карточки сертификата',
+      'Не удалось загрузить данные сертификата',
+    );
   }, [open, isError, error]);
 
   useEffect(() => {
@@ -134,11 +132,14 @@ export function CertificateDetailDialog({
 
   const handleSaveBinding = async () => {
     if (!certificateId || !selectedEmployeeId) {
-      toast.error('Выберите сотрудника');
+      showValidationError(
+        'Сотрудник не выбран',
+        'Выберите сотрудника из списка для привязки сертификата',
+      );
       return;
     }
     if (data?.employee?.id === selectedEmployeeId) {
-      toast.info('Сотрудник не изменился');
+      showValidationError('Привязка не изменилась', 'Выбран тот же сотрудник, что уже привязан');
       cancelEditingBinding();
       return;
     }
@@ -147,14 +148,15 @@ export function CertificateDetailDialog({
         certificateId,
         employeeId: selectedEmployeeId,
       });
-      toast.success(
+      showActionSuccess(
+        data?.employee ? 'Привязка изменена' : 'Сертификат привязан',
         data?.employee
-          ? 'Привязка к сотруднику изменена'
-          : 'Сертификат привязан к сотруднику',
+          ? `Новый сотрудник назначен для ${data.serialNumber}`
+          : `Сертификат ${data?.serialNumber ?? ''} привязан к сотруднику`,
       );
       cancelEditingBinding();
     } catch (err) {
-      toast.error(getMutationErrorMessage(err));
+      showActionError(err, 'Привязка сертификата к сотруднику', 'Не удалось изменить привязку');
     }
   };
 
@@ -162,11 +164,16 @@ export function CertificateDetailDialog({
     if (!certificateId) return;
     try {
       await updateEmployee({ certificateId, employeeId: null });
-      toast.success('Сертификат отвязан от сотрудника');
+      showActionSuccess(
+        'Сертификат отвязан',
+        data?.employee
+          ? `От сотрудника ${data.employee.fullName} (${data.serialNumber})`
+          : undefined,
+      );
       setUnassignConfirm(false);
       cancelEditingBinding();
     } catch (err) {
-      toast.error(getMutationErrorMessage(err));
+      showActionError(err, 'Отвязка сертификата', 'Не удалось отвязать сертификат от сотрудника');
     }
   };
 
@@ -181,9 +188,12 @@ export function CertificateDetailDialog({
         certificateId,
         notes: next || null,
       });
-      toast.success('Примечание сохранено');
+      showActionSuccess(
+        'Примечание сохранено',
+        data?.serialNumber ? `Сертификат ${data.serialNumber}` : undefined,
+      );
     } catch (err) {
-      toast.error(getMutationErrorMessage(err));
+      showActionError(err, 'Сохранение примечания', 'Не удалось сохранить примечание');
       setNotesDraft(data?.notes ?? '');
     }
   };
@@ -202,14 +212,34 @@ export function CertificateDetailDialog({
       document.body.appendChild(link);
       link.click();
       link.remove();
+      showActionSuccess(
+        'Файл сертификата готов к скачиванию',
+        data ? `${data.subjectCN} · ${fileName}` : fileName,
+      );
     } catch (err) {
-      toast.error(getMutationErrorMessage(err));
+      showActionError(err, 'Скачивание сертификата', 'Не удалось получить ссылку на файл');
+    }
+  };
+
+  const handleRevoke = async () => {
+    if (!certificateId) return;
+    try {
+      const revoked = await revokeCertificate(certificateId);
+      showActionSuccess(
+        'Сертификат отозван',
+        revoked ? `${revoked.subjectCN} · ${revoked.serialNumber}` : undefined,
+      );
+      resetBindingUi();
+    } catch (err) {
+      showActionError(err, 'Отзыв сертификата', 'Не удалось отозвать сертификат');
     }
   };
 
   const daysLeft = data ? daysUntilExpiry(data.validTo) : null;
+  const isRevoked = data?.status === 'revoked';
   const bindingBusy = isUpdatingEmployee;
   const notesBusy = isUpdatingNotes;
+  const actionsBusy = isDownloading || isRevoking || bindingBusy;
   const validityCopyText = data
     ? `${formatDate(data.validFrom)} — ${formatDate(data.validTo)}`
     : undefined;
@@ -249,6 +279,20 @@ export function CertificateDetailDialog({
 
         {!isPending && data && certificateId && (
           <div className="space-y-3">
+            {isRevoked && (
+              <div className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm text-slate-700">
+                <ShieldBan className="mt-0.5 size-4 shrink-0" />
+                <div>
+                  <p className="font-medium text-slate-900">Сертификат отозван</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-slate-600">
+                    Не участвует в уведомлениях и блоке «Требуют внимания».
+                    Привязку к сотруднику изменить нельзя — можно только отвязать
+                    или удалить запись.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <section className="rounded-xl border border-border/70 bg-accent/30 p-3.5">
               <h3 className="text-sm font-semibold text-foreground">
                 Привязка к сотруднику
@@ -379,18 +423,20 @@ export function CertificateDetailDialog({
                     </div>
                   ) : (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="cursor-pointer"
-                        disabled={bindingBusy}
-                        onClick={startEditingBinding}
-                      >
-                        <Link2 className="size-4" />
-                        {data.employee
-                          ? 'Изменить привязку'
-                          : 'Привязать к сотруднику'}
-                      </Button>
+                      {!isRevoked && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="cursor-pointer"
+                          disabled={bindingBusy}
+                          onClick={startEditingBinding}
+                        >
+                          <Link2 className="size-4" />
+                          {data.employee
+                            ? 'Изменить привязку'
+                            : 'Привязать к сотруднику'}
+                        </Button>
+                      )}
                       {data.employee && (
                         <Button
                           type="button"
@@ -446,7 +492,11 @@ export function CertificateDetailDialog({
                   value={
                     <>
                       {formatDate(data.validFrom)} — {formatDate(data.validTo)}
-                      {daysLeft !== null && (
+                      {isRevoked ? (
+                        <span className="ml-2 text-xs font-normal text-slate-600">
+                          (отозван)
+                        </span>
+                      ) : daysLeft !== null ? (
                         <span
                           className={cn(
                             'ml-2 text-xs font-normal',
@@ -463,7 +513,7 @@ export function CertificateDetailDialog({
                               ? '(истекает сегодня)'
                               : `(осталось ${daysLeft} дн.)`}
                         </span>
-                      )}
+                      ) : null}
                     </>
                   }
                 />
@@ -547,28 +597,62 @@ export function CertificateDetailDialog({
         )}
 
         <DialogFooter className="gap-2 sm:justify-between">
-          {data && (
-            <Button
-              type="button"
-              variant="outline"
-              className="cursor-pointer"
-              disabled={isPending || isDownloading || bindingBusy}
-              onClick={handleDownload}
-            >
-              {isDownloading ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Download className="size-4" />
-              )}
-              Скачать сертификат
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {data && (
+              <Button
+                type="button"
+                variant="outline"
+                className="cursor-pointer"
+                disabled={isPending || actionsBusy || notesBusy}
+                onClick={handleDownload}
+              >
+                {isDownloading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Download className="size-4" />
+                )}
+                Скачать сертификат
+              </Button>
+            )}
+            {data && !isRevoked && (
+              <ConfigProvider
+                theme={{
+                  token: { colorPrimary: '#f59e0b', borderRadius: 10 },
+                }}
+              >
+                <Popconfirm
+                  title="Отозвать сертификат?"
+                  description={`«${data.subjectCN}» перестанет участвовать в уведомлениях и мониторинге сроков. Действие необратимо.`}
+                  okText="Отозвать"
+                  cancelText="Отмена"
+                  okButtonProps={{ danger: true, loading: isRevoking }}
+                  onConfirm={handleRevoke}
+                >
+                  <span className="inline-flex">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="cursor-pointer border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                      disabled={isPending || actionsBusy || notesBusy}
+                    >
+                      {isRevoking ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <ShieldBan className="size-4" />
+                      )}
+                      Отозвать
+                    </Button>
+                  </span>
+                </Popconfirm>
+              </ConfigProvider>
+            )}
+          </div>
           <DialogClose
             render={
               <Button
                 variant="outline"
                 className="cursor-pointer sm:ml-auto"
-                disabled={isPending || bindingBusy || notesBusy}
+                disabled={isPending || actionsBusy || notesBusy}
               >
                 Закрыть
               </Button>

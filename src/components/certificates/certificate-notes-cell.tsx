@@ -2,8 +2,8 @@
 
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
 
+import { showActionError, showActionSuccess } from '@/lib/toast-messages';
 import { Input } from '@/components/ui/input';
 import { useUpdateCertificateNotes } from '@/hooks/use-certificate';
 import { cn } from '@/lib/utils';
@@ -13,12 +13,6 @@ type CertificateNotesCellProps = {
   value: string | null;
   className?: string;
 };
-
-function getMutationErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  const err = error as { error?: string };
-  return err.error ?? 'Не удалось сохранить примечание';
-}
 
 export function CertificateNotesCell({
   certificateId,
@@ -42,9 +36,9 @@ export function CertificateNotesCell({
         certificateId,
         notes: next || null,
       });
-      toast.success('Примечание сохранено');
+      showActionSuccess('Примечание сохранено');
     } catch (error) {
-      toast.error(getMutationErrorMessage(error));
+      showActionError(error, 'Сохранение примечания в таблице', 'Не удалось сохранить примечание');
       setDraft(value ?? '');
     }
   };

@@ -8,7 +8,7 @@ export default function DashboardTemplate({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-full overflow-hidden">
+    <div className="min-h-full overflow-x-hidden">
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}

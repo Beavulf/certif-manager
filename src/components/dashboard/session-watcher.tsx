@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import {toast} from 'sonner';
+import { toast } from 'sonner';
 
 
 type SessionWatcherProps = {
@@ -15,22 +15,26 @@ export function SessionWatcher({ expiresAt }: SessionWatcherProps) {
   useEffect(() => {
     const timeout = expiresAt * 1000 - Date.now();
     
-    if (timeout <= 15 * 60 * 1000 || timeout <= 5 * 60 * 1000) {
+    const minutesLeft = Math.max(1, Math.ceil(timeout / 1000 / 60));
+
+    if (timeout <= 15 * 60 * 1000) {
       toast.warning(
-        `До конца сессии осталось: ${(timeout / 1000 / 60).toFixed(0)} минут`,
+        `Сессия истекает через ${minutesLeft} мин.`,
         {
-          duration: timeout,
+          description: 'Сохраните изменения и войдите снова, чтобы продолжить работу',
+          duration: Math.min(timeout, 60_000),
           action: {
             label: 'Закрыть',
             onClick: () => toast.dismiss(),
           },
-          style:{color:'orange'}
-        }
-      )
- 
+        },
+      );
     }
 
     if (timeout <= 0) {
+      toast.error('Сессия завершена', {
+        description: 'Выполнен переход на страницу входа',
+      });
       router.replace('/login');
       router.refresh();
       return;

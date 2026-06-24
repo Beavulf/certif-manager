@@ -14,6 +14,7 @@ import { CertificateFields } from '@/types/certificate-types';
 import uploadCertificateToEmployeeAction, { uploadCertificateAndSyncADUserAction } from '@/server/actions/certificate/upload-certificate-action';
 import { updateCertificateEmployeeAction } from '@/server/actions/certificate/update-certificate-employee-action';
 import { updateCertificateNotesAction } from '@/server/actions/certificate/update-certificate-notes-action';
+import { revokeCertificateAction } from '@/server/actions/certificate/revoke-certificate-action';
 import { getCertificateDownloadUrlAction } from '@/server/actions/certificate/get-certificate-download-url-action';
 import { bulkDeleteCertificatesAction } from '@/server/actions/certificate/bulk-delete-certificates-action';
 
@@ -183,6 +184,15 @@ export function useUpdateCertificateEmployee() {
         queryKey: queryKeys.certificates.detail(variables.certificateId),
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+      if (variables.employeeId) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.employees.detail(variables.employeeId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.certificates.assignable(variables.employeeId),
+        });
+      }
     },
   });
 }
@@ -231,6 +241,35 @@ export function useUpdateCertificateNotes() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.certificates.detail(variables.certificateId),
       });
+    },
+  });
+}
+
+export function useRevokeCertificate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (certificateId: string) => {
+      const result = await revokeCertificateAction({ certificateId });
+      if (!result.success) throw result;
+      return result.data!;
+    },
+    onSuccess: (data) => {
+      if (!data) return;
+      queryClient.invalidateQueries({ queryKey: queryKeys.certificates.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.certificates.detail(data.id),
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+      if (data.employeeId) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.employees.detail(data.employeeId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.certificates.assignable(data.employeeId),
+        });
+      }
     },
   });
 }

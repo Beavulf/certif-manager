@@ -8,10 +8,6 @@ import prisma from "@/lib/prisma";
 
 export const documentService = {
 
-  async findMany(args?: Prisma.DocumentFindManyArgs): Promise<Document[]> {
-    return await documentRepository.findMany(args);
-  },
-
   async create(
     certificateId: string,
     fileBuffer: Buffer,
@@ -80,11 +76,6 @@ export const documentService = {
     if (!document) {
       throw new NotFoundError("Документ не найден");
     }
-    return document;
-  },
-
-  async findById(id: string): Promise<Document | null> {
-    const document = await documentRepository.findById(id);
     return document;
   },
 

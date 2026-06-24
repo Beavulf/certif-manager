@@ -1,12 +1,19 @@
 export const queryKeys = {
+  dashboard: {
+    all: ['dashboard'] as const,
+    bundle: () => ['dashboard', 'bundle'] as const,
+  },
   certificates: {
     all: ['certificates'] as const,
     list: (filters?: string[]) => ['certificates', 'list', ...(filters ?? [])] as const,
     detail: (id: string) => ['certificates', 'detail', id] as const,
+    assignable: (employeeId: string) =>
+      ['certificates', 'assignable', employeeId] as const,
   },
   employees: {
     all: ['employees'] as const,
     list: () => ['employees', 'list'] as const,
+    page: () => ['employees', 'page'] as const,
     detail: (id: string) => ['employees', 'detail', id] as const,
   },
   notifications: {

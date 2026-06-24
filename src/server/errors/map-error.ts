@@ -13,9 +13,18 @@ export function mapErrorToSafeResult<T = unknown>(error: unknown):SafeResult<T> 
   }
 
   console.error('[Unexpected error]',error);
+  const causeCode =
+    error &&
+    typeof error === 'object' &&
+    'cause' in error &&
+    error.cause &&
+    typeof error.cause === 'object' &&
+    'code' in error.cause
+      ? String(error.cause.code)
+      : undefined;
   return {
     success: false,
-    error: `Внутренняя ошибка сервера(${error?.cause?.code}): ${error}`,
+    error: `Внутренняя ошибка сервера(${causeCode}): ${error}`,
     code: 'INTERNAL_ERROR',
   }
 }

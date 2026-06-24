@@ -1,9 +1,9 @@
 import {
   LayoutGrid,
   FileBadge2,
-  Upload,
   Bell,
   Settings,
+  Users,
 } from 'lucide-react';
 
 export const dashboardLinks = [
@@ -18,9 +18,9 @@ export const dashboardLinks = [
     icon: FileBadge2,
   },
   {
-    title: 'Загрузка',
-    href: '/upload',
-    icon: Upload,
+    title: 'Сотрудники',
+    href: '/employees',
+    icon: Users,
   },
   {
     title: 'Уведомления',

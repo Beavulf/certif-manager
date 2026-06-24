@@ -50,28 +50,6 @@ export const checkIdEmployeeSchema = z.object({
 
 export type CheckIdEmployeeInput = z.infer<typeof checkIdEmployeeSchema>
 
-export const checkAdUsernameEmployeeSchema = z.object({
-  adUsername: z
-    .string({
-      error: "id должен быть строкой",
-    })
-    .min(1, "Требуется ввести id")
-    .max(50, "Логин не должен превышать 50 символов")
-})
-
-export type CheckAdUsernameEmployeeInput = z.infer<typeof checkAdUsernameEmployeeSchema>
-
-export const getEmployeesByFilterSchema = z.object({
-  adUsername: z.string({error: 'adUsername обязателен'}).optional(),
-  fullName: z.string({error: 'fullName обязателен'}).optional(),
-  email: z.email().optional(),
-  department: z.string({error: 'department обязателен'}).optional(),
-  position: z.string({error: 'position обязателен'}).optional(),
-  isActive: z.boolean().optional(),
-  createdAt: z.date().optional(),
-  updatedAt: z.date().optional(),
-})
-
 export const updateEmployeeByIdSchema = z.object({
   id: z
     .string({

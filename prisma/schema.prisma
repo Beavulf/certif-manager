@@ -159,7 +159,7 @@ model AuditLog {
   adUsername  String?
   displayName String?
   action      AuditAction
-  entityType  String?     // "certificate" | "document" | "employee"
+  entityType  String?     // certificate | document | employee | notificationSettings | appSettings | system
   entityId    String?
   ipAddress   String?
   userAgent   String?

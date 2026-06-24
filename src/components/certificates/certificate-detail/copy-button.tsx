@@ -2,13 +2,13 @@
 
 import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
 
+import { showActionSuccess, showValidationError } from '@/lib/toast-messages';
 import { cn } from '@/lib/utils';
 
-export async function copyTextToClipboard(text: string, label = 'Скопировано') {
+export async function copyTextToClipboard(text: string, label = 'Скопировано в буфер обмена') {
   await navigator.clipboard.writeText(text);
-  toast.success(label);
+  showActionSuccess(label);
 }
 
 type CopyButtonProps = {
@@ -26,7 +26,10 @@ export function CopyButton({ value, label, className }: CopyButtonProps) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1200);
     } catch {
-      toast.error('Не удалось скопировать');
+      showValidationError(
+        'Не удалось скопировать',
+        'Браузер заблокировал доступ к буферу обмена',
+      );
     }
   };
 

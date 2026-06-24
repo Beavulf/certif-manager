@@ -1,7 +1,6 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 
 import { QUERY_CONFIG } from '@/constants/query-config';
 import { queryKeys } from '@/constants/query-keys';
@@ -18,11 +17,10 @@ import {
 } from '@/server/actions/settings/test-smtp-action';
 import type { SettingsBundle } from '@/types/settings-types';
 
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error) return error.message;
-  const err = error as { error?: string };
-  return err.error ?? fallback;
-}
+import {
+  showActionError,
+  showActionSuccess,
+} from '@/lib/toast-messages';
 
 export function useSettings(initialData?: SettingsBundle) {
   return useQuery({
@@ -61,10 +59,13 @@ export function useUpdateAppSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.publicApp });
-      toast.success('Настройки сохранены');
+      showActionSuccess(
+        'Общие настройки сохранены',
+        'Изменения применены. При смене срока хранения старые записи аудита могут быть удалены.',
+      );
     },
     onError: (error) => {
-      toast.error(getErrorMessage(error, 'Не удалось сохранить настройки'));
+      showActionError(error, 'Сохранение общих настроек', 'Не удалось сохранить настройки');
     },
   });
 }
@@ -84,10 +85,15 @@ export function useUpdateNotificationSettings() {
         (prev) => (prev ? { ...prev, notification: data } : prev),
       );
       queryClient.invalidateQueries({ queryKey: queryKeys.settings.all });
-      toast.success('Настройки уведомлений сохранены');
+      showActionSuccess(
+        'Настройки уведомлений сохранены',
+        data.isEnabled
+          ? 'Автоматическая отправка писем включена'
+          : 'Автоматическая отправка писем отключена — cron не будет отправлять письма',
+      );
     },
     onError: (error) => {
-      toast.error(getErrorMessage(error, 'Не удалось сохранить уведомления'));
+      showActionError(error, 'Сохранение настроек уведомлений', 'Не удалось сохранить уведомления');
     },
   });
 }
@@ -99,9 +105,13 @@ export function useVerifySmtp() {
       if (!result.success) throw result;
       return result.data;
     },
-    onSuccess: () => toast.success('SMTP-соединение успешно'),
+    onSuccess: () =>
+      showActionSuccess(
+        'Подключение к SMTP успешно',
+        'Сервер принял соединение с указанными параметрами',
+      ),
     onError: (error) => {
-      toast.error(getErrorMessage(error, 'Не удалось подключиться к SMTP'));
+      showActionError(error, 'Проверка SMTP-соединения', 'Не удалось подключиться к SMTP');
     },
   });
 }
@@ -113,9 +123,13 @@ export function useSendTestEmail() {
       if (!result.success) throw result;
       return result.data;
     },
-    onSuccess: () => toast.success('Тестовое письмо отправлено'),
+    onSuccess: (_data, variables) =>
+      showActionSuccess(
+        'Тестовое письмо отправлено',
+        `Получатель: ${variables.testEmail}`,
+      ),
     onError: (error) => {
-      toast.error(getErrorMessage(error, 'Не удалось отправить письмо'));
+      showActionError(error, 'Отправка тестового письма', 'Не удалось отправить письмо');
     },
   });
 }

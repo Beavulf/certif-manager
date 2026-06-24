@@ -13,4 +13,6 @@ export type CheckExpiringOptions = {
   daysOverride?: number[];
   ignoreAlreadySent?: boolean;
   isTestRun?: boolean;
+  initiatedBy?: 'cron' | 'manual';
+  adUsername?: string;
 };

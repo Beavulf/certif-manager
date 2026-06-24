@@ -1,11 +1,15 @@
 'use server';
 
-import { getDocumentByFilterSchema, getDocumentByIdSchema } from '@/schemas/get-document-schema';
+import type { Document } from '@/generated/prisma/client';
+import { getDocumentByIdSchema } from '@/schemas/get-document-schema';
 import { requireAuth } from '@/lib/session-helper';
 import { mapErrorToSafeResult } from '@/server/errors/map-error';
 import { documentService } from '@/server/services/document-service';
+import type { SafeResult } from '@/types/safe-result-types';
 
-export async function getDocumentsByCertIdAction(certificateId: string) {
+export async function getDocumentsByCertIdAction(
+  certificateId: string,
+): Promise<SafeResult<Document[]>> {
   await requireAuth();
 
   const parsed = getDocumentByIdSchema.safeParse({
@@ -22,68 +26,6 @@ export async function getDocumentsByCertIdAction(certificateId: string) {
 
   try {
     const documents = await documentService.findByCertificateId(parsed.data.id);
-    return { success: true, data: documents };
-  } catch (error) {
-    return mapErrorToSafeResult(error);
-  }
-}
-
-export async function getDocumentsByIdAction(documentId: string) {
-  await requireAuth();
-
-  const parsed = getDocumentByIdSchema.safeParse({
-    id: documentId,
-  });
-
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: 'Ошибка валидации',
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
-
-  try {
-    const documents = await documentService.findById(parsed.data.id);
-    return { success: true, data: documents };
-  } catch (error) {
-    return mapErrorToSafeResult(error);
-  }
-}
-
-export async function getDocumentsByFilterAction(formData: FormData) {
-  await requireAuth();
-
-  const filterKeys = ['fileKey', 'fileName', 'fileType', 'uploadedBy'];
-  const filterData = Object.fromEntries(
-    filterKeys.map((key) => [key, formData.get(key)]),
-  );
-
-  const parsed = getDocumentByFilterSchema.safeParse({ filterData });
-
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: 'Ошибка валидации',
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
-
-  const where = Object.fromEntries(
-    Object.entries(parsed.data).filter(([, value]) => value != null && value !== ''),
-  );
-
-  try {
-    const documents = await documentService.findMany({
-      where,
-      include: {
-        certificate: true,
-      },
-      orderBy: {
-        uploadedAt: 'desc',
-      },
-    });
-
     return { success: true, data: documents };
   } catch (error) {
     return mapErrorToSafeResult(error);

@@ -1,9 +1,11 @@
 'use server'
 
 import type { Certificate } from "@/generated/prisma/browser";
+import { requireAuth } from "@/lib/session-helper";
 import { mapErrorToSafeResult } from "@/server/errors/map-error";
 import { auditlogService } from "@/server/services/auditlog-service";
 import { certificateService } from "@/server/services/certificate-service";
+import { AUDIT_ENTITY } from "@/types/auditlog-types";
 import type { SafeResult } from "@/types/safe-result-types";
 import {z} from 'zod'
 
@@ -14,8 +16,12 @@ const deleteCertificateSchema = z.object({
 })
 
 export default async function deleteCertificateAction(
-  id: string
+  id: string,
+  options?: { skipAudit?: boolean },
 ):Promise<SafeResult<Certificate>> {
+  const session = await requireAuth();
+  const username = session.username;
+
   const parsed = deleteCertificateSchema.safeParse({ id })
   if (!parsed.success) {
     return {
@@ -27,13 +33,17 @@ export default async function deleteCertificateAction(
   
   try {
     const { deleted: certificate, deletedDocs } = await certificateService.deleteById(id);
-    await auditlogService.log({
-      action: 'deleteCert',
-      entityType: 'certificate',
-      entityId: certificate.id,
-      displayName: `Сертификат удален: ${certificate.serialNumber} - ${certificate.subjectCN}. Документы удалены: ${deletedDocs.count} шт.`,
-      adUsername: certificate.uploadedBy
-    })
+
+    if (!options?.skipAudit) {
+      await auditlogService.log({
+        action: 'deleteCert',
+        entityType: AUDIT_ENTITY.certificate,
+        entityId: certificate.id,
+        displayName: `Сертификат удалён: ${certificate.serialNumber} (${certificate.subjectCN}). Документов удалено: ${deletedDocs.count}`,
+        adUsername: username,
+      });
+    }
+
     return {
       success: true,
       data: certificate

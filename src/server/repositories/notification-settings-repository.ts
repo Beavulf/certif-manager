@@ -4,7 +4,6 @@ import { handlePrismaError } from "../errors/prisma-error-handler";
 
 export type DbClient = PrismaClient | Prisma.TransactionClient;
 
-
 export function createNotificationSettingsRepository(db: DbClient = prisma) {
   return {
     async create(data: Prisma.NotificationSettingsCreateInput): Promise<NotificationSettings> {
@@ -15,29 +14,11 @@ export function createNotificationSettingsRepository(db: DbClient = prisma) {
       }
     },
 
-    async findMany<T extends Prisma.NotificationSettingsFindManyArgs>(
-      args?: Prisma.SelectSubset<T, Prisma.NotificationSettingsFindManyArgs>
-    ): Promise<Prisma.NotificationSettingsGetPayload<T>[]> {
-      try {
-        return await db.notificationSettings.findMany<T>(args);
-      } catch (error) {
-        handlePrismaError(error);
-      }
-    },
-
     async findFirst(
       args?: Prisma.NotificationSettingsFindFirstArgs
-    ):Promise<NotificationSettings | null> {
+    ): Promise<NotificationSettings | null> {
       try {
         return await db.notificationSettings.findFirst(args);
-      } catch (error) {
-        handlePrismaError(error);
-      }
-    },
-
-    async findById(id: string): Promise<NotificationSettings | null> {
-      try {
-        return await db.notificationSettings.findUnique({ where: { id } });
       } catch (error) {
         handlePrismaError(error);
       }
@@ -46,14 +27,6 @@ export function createNotificationSettingsRepository(db: DbClient = prisma) {
     async updateById(id: string, data: Prisma.NotificationSettingsUpdateInput): Promise<NotificationSettings> {
       try {
         return await db.notificationSettings.update({ where: { id }, data });
-      } catch (error) {
-        handlePrismaError(error);
-      }
-    },
-
-    async deleteById(id: string): Promise<NotificationSettings> {
-      try {
-        return await db.notificationSettings.delete({ where: { id } });
       } catch (error) {
         handlePrismaError(error);
       }

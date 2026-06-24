@@ -6,6 +6,7 @@ import { mapErrorToSafeResult } from '@/server/errors/map-error';
 import { auditlogService } from '@/server/services/auditlog-service';
 import { certificateService } from '@/server/services/certificate-service';
 import { employeeService } from '@/server/services/employee-service';
+import { AUDIT_ENTITY } from '@/types/auditlog-types';
 import type { Certificate } from '@/generated/prisma/client';
 import type { SafeResult } from '@/types/safe-result-types';
 
@@ -65,7 +66,7 @@ export async function updateCertificateEmployeeAction(input: {
 
     await auditlogService.log({
       action: 'editCertificate',
-      entityType: 'certificate',
+      entityType: AUDIT_ENTITY.certificate,
       entityId: certificate.id,
       displayName,
       adUsername: username,

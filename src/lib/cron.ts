@@ -24,7 +24,7 @@ export async function startCronJobs() {
     `${minute} ${hour} * * *`,
     async () => {
       console.log('[CRON] Checking expiring certificates...');
-      await checkExpiringCertificates();
+      await checkExpiringCertificates({ initiatedBy: 'cron' });
     },
     { timezone: settings.timezone },
   );

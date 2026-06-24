@@ -1,19 +1,20 @@
 'use server'
 
 import type { CertificateFindManyArgs } from "@/generated/prisma/models";
-import { getCertificateSchema } from "@/schemas/get-certificate-schema";
 import { mapErrorToSafeResult } from "@/server/errors/map-error";
 import { certificateService } from "@/server/services/certificate-service";
 import type { SafeResult } from "@/types/safe-result-types";
 import type { CertificatesWithIncludes } from "@/types/certificate-types";
 import { z } from "zod";
 
-const certificateIdSchema = z.string().uuid("Некорректный идентификатор сертификата");
+const certificateIdSchema = z.object({
+  id: z.string().uuid('Некорректный идентификатор сертификата'),
+});
 
 export async function getCertificateByIdAction(
   id: string
 ): Promise<SafeResult<CertificatesWithIncludes>> {
-  const parsed = certificateIdSchema.safeParse(id);
+  const parsed = certificateIdSchema.safeParse({ id });
   if (!parsed.success) {
     return {
       success: false,
@@ -23,68 +24,16 @@ export async function getCertificateByIdAction(
   }
 
   try {
-    const certificate = await certificateService.findByIdWithRelationsOrThrow(parsed.data);
+    const certificate = await certificateService.findByIdWithRelationsOrThrow(parsed.data.id);
     return { success: true, data: certificate };
   } catch (error) {
     return mapErrorToSafeResult(error);
   }
 }
 
-export async function getCertificateAction(
-  formData: FormData
-):Promise<SafeResult> {
-  const idCert = formData.get('id')
-  const employeeId = formData.get('employeeId')
-  const serialNumber = formData.get('serialNumber')
-  
-  const resultInput =
-    idCert ? { id: idCert } :
-    employeeId ? { employeeId } :
-    serialNumber ? { serialNumber } :
-    {};
-  
-  const parsed = getCertificateSchema.safeParse(resultInput)
-
-  if (!parsed.success) {
-    // Корректно получаем ошибки валидации по полям для передачи в UI
-    return {
-      success: false,
-      error: 'Ошибка валидации',
-      fieldErrors:parsed.error.flatten().fieldErrors,
-    }
-  }
-  type ParsedType = typeof parsed.data
-  const identify: ParsedType = parsed.data;
-  
-  if (!identify) {
-    return {
-      success: false,
-      error: 'Ошибка валидации, вернул undefined',
-      fieldErrors: {}
-    }
-  }
-  
-  try {
-    let certificate;
-    if ("id" in identify) {
-      certificate = await certificateService.findById(identify.id);
-    } else if ("employeeId" in identify) {
-      certificate = await certificateService.findByEmployeeId(identify.employeeId);
-    } else if ("serialNumber" in identify) {
-      certificate = await certificateService.findBySerialNumber(identify.serialNumber);
-    } else {
-      certificate = {};
-    }
-    
-    return { success: true, data: certificate }
-  } catch(error) {
-    return mapErrorToSafeResult(error)
-  }
-}
-
 export async function getCertificatesByFindMany(
   args?: CertificateFindManyArgs
-):Promise<SafeResult> {
+): Promise<SafeResult> {
   try {
     const certificates = await certificateService.findMany(args);
     return {

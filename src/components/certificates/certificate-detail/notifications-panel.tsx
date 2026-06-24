@@ -31,7 +31,12 @@ export function CertificateNotificationsPanel({
         </span>
       </div>
 
-      <div className="mt-2 space-y-1.5">
+      <div
+        className={cn(
+          'mt-2 space-y-1.5',
+          logs.length > 2 && 'max-h-[8.75rem] overflow-y-auto pr-1',
+        )}
+      >
         {isPending && (
           <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin" />

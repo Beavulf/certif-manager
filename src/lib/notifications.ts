@@ -3,6 +3,7 @@ import { notificationLogService } from "@/server/services/notification-log-servi
 import { notificationSettingsService } from "@/server/services/notification-settings-service";
 import { sendExpiryEmail } from "./mail";
 import { auditlogService } from "@/server/services/auditlog-service";
+import { AUDIT_ENTITY } from "@/types/auditlog-types";
 import dayjs from "@/lib/dayjs-config";
 import type { CertificatesWithIncludes } from "@/types/certificate-types";
 import type {
@@ -51,11 +52,21 @@ export async function checkExpiringCertificates(
   const isTestRun = options?.isTestRun ?? Boolean(options?.daysOverride?.length);
 
   if (!notifySetting.isEnabled) {
-    await auditlogService.log({
-      action: 'sendNotification',
-      entityType: 'notificationSettings',
-      displayName: 'Уведомления отключены, проверка сертификатов пропущена',
-    });
+    const disabledMessage = 'Уведомления отключены в настройках';
+
+    if (options?.initiatedBy) {
+      const prefix =
+        options.initiatedBy === 'cron'
+          ? 'Автоматическая проверка'
+          : 'Ручной запуск проверки';
+
+      await auditlogService.log({
+        action: 'sendNotification',
+        entityType: AUDIT_ENTITY.system,
+        displayName: `${prefix}: ${disabledMessage}`,
+        adUsername: options.adUsername,
+      });
+    }
 
     return {
       disabled: true,
@@ -65,7 +76,7 @@ export async function checkExpiringCertificates(
       skipped: 0,
       checkDays: [],
       isTestRun,
-      message: 'Уведомления отключены в настройках',
+      message: disabledMessage,
     };
   }
 
@@ -159,6 +170,21 @@ export async function checkExpiringCertificates(
       ? `${testPrefix}Нет сертификатов для уведомления (дни: ${daysLabel})`
       : `${testPrefix}Обработано: ${processed}, отправлено: ${sent}, ошибок: ${failed}, пропущено: ${skipped}${skipDetails}`;
 
+  if (options?.initiatedBy) {
+    const testSuffix = isTestRun ? ` [тест: ${daysLabel} дн.]` : '';
+    const prefix =
+      options.initiatedBy === 'cron'
+        ? 'Автоматическая проверка'
+        : `Ручной запуск проверки${testSuffix}`;
+
+    await auditlogService.log({
+      action: 'sendNotification',
+      entityType: AUDIT_ENTITY.system,
+      displayName: `${prefix}: ${message}`,
+      adUsername: options.adUsername,
+    });
+  }
+
   return {
     disabled: false,
     processed,
@@ -183,8 +209,8 @@ export async function updateExpiredStatuses() {
   if (updated.count !== 0) {
     await auditlogService.log({
       action: 'editCertificate',
-      entityType: 'certificate',
-      displayName: `Обновлено статусов certificates: ${updated.count}`,
+      entityType: AUDIT_ENTITY.system,
+      displayName: `Автоматическое обновление статусов: ${updated.count} сертификат(ов) помечено как истёкшие`,
     });
   }
 

@@ -4,6 +4,7 @@ import { uploadCertificateSchema } from "@/schemas/upload-file-schema"
 import { mapErrorToSafeResult } from "@/server/errors/map-error";
 import { auditlogService } from "@/server/services/auditlog-service";
 import { certificateService } from "@/server/services/certificate-service";
+import { AUDIT_ENTITY } from "@/types/auditlog-types";
 import type { SafeResult } from "@/types/safe-result-types";
 import { requireAuth } from "@/lib/session-helper";
 import { validateCertificateUpload } from '@/lib/upload-validation';
@@ -64,7 +65,7 @@ export default async function uploadCertificateToEmployeeAction(
   
     await auditlogService.log({
       action: 'uploadCert',
-      entityType: 'certificate',
+      entityType: AUDIT_ENTITY.certificate,
       entityId: certificate.id,
       displayName: `Сертификат загружен: ${certificate.serialNumber}`,
       adUsername: username
@@ -127,7 +128,7 @@ export async function uploadCertificateAndSyncADUserAction(
 
     await auditlogService.log({
       action: 'uploadCert',
-      entityType: 'certificate',
+      entityType: AUDIT_ENTITY.certificate,
       entityId: result.data?.id,
       displayName: `Сертификат(${result.data?.serialNumber}) загружен и привязан к сотруднику: ${result.data?.subjectCN}`,
       adUsername: username

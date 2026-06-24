@@ -208,7 +208,7 @@ export function NotificationsPage({ initial }: NotificationsPageProps) {
           </ConfigProvider>
 
           <Button
-            onClick={() => runCheck.mutateAsync()}
+            onClick={() => runCheck.mutateAsync({})}
             disabled={runCheck.isPending}
           >
             {runCheck.isPending ? 'Проверка…' : 'Запустить проверку сейчас'}

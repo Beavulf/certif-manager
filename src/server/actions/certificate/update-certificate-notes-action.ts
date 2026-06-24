@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/session-helper';
 import { mapErrorToSafeResult } from '@/server/errors/map-error';
 import { auditlogService } from '@/server/services/auditlog-service';
 import { certificateService } from '@/server/services/certificate-service';
+import { AUDIT_ENTITY } from '@/types/auditlog-types';
 import type { Certificate } from '@/generated/prisma/client';
 import type { SafeResult } from '@/types/safe-result-types';
 
@@ -41,7 +42,7 @@ export async function updateCertificateNotesAction(input: {
 
     await auditlogService.log({
       action: 'editCertificate',
-      entityType: 'certificate',
+      entityType: AUDIT_ENTITY.certificate,
       entityId: certificate.id,
       displayName: `Обновлено примечание сертификата: ${certificate.serialNumber}`,
       adUsername: username,

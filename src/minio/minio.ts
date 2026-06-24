@@ -38,7 +38,12 @@ export async function fileExists(key: string): Promise<boolean> {
     await minioClient.statObject(BUCKET, key)
     return true
   } catch (err) {
-    if (err && err.code === 'NotFound') {
+    if (
+      err &&
+      typeof err === 'object' &&
+      'code' in err &&
+      err.code === 'NotFound'
+    ) {
       return false
     }
     throw err

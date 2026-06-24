@@ -5,6 +5,7 @@ import { updateNotificationSettingsSchema } from '@/schemas/settings-schema';
 import { mapErrorToSafeResult } from '@/server/errors/map-error';
 import { auditlogService } from '@/server/services/auditlog-service';
 import { notificationSettingsService } from '@/server/services/notification-settings-service';
+import { AUDIT_ENTITY } from '@/types/auditlog-types';
 import type { NotificationSettings } from '@/generated/prisma/client';
 import type { NotificationSettingsPublic } from '@/types/settings-types';
 import type { SafeResult } from '@/types/safe-result-types';
@@ -40,7 +41,7 @@ export async function updateNotificationSettingsAction(
 
     await auditlogService.log({
       action: 'editSettings',
-      entityType: 'notificationSettings',
+      entityType: AUDIT_ENTITY.notificationSettings,
       entityId: updated.id,
       displayName: `Обновлены настройки уведомлений (включено: ${updated.isEnabled ? 'да' : 'нет'})`,
       adUsername: username,
