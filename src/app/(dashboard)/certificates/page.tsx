@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { PageShell } from "@/components/dashboard/page-shell";
 import { CertificatesPage } from "@/components/certificates/certificate-page";
@@ -7,7 +9,10 @@ import type { SafeResult } from "@/types/safe-result-types";
 
 export default async function Home() {
   const init = await getCertificatesByFindMany({
-    include: { employee: { select: { id: true, fullName: true } } },
+    include: {
+      employee: { select: { id: true, fullName: true } },
+      _count: { select: { documents: true } },
+    },
     orderBy: { uploadedAt: 'desc' },
   }) as SafeResult<Certificate[]>;
   
@@ -17,8 +22,10 @@ export default async function Home() {
         title="Сертификаты"
         description="Загружай, просматривай и управляем сертификатами."
       />
-      <PageShell wide>
-        <CertificatesPage initial={init}/>
+      <PageShell wide fill>
+        <Suspense fallback={<p className="text-sm text-muted-foreground">Загрузка…</p>}>
+          <CertificatesPage initial={init}/>
+        </Suspense>
       </PageShell>
     </>
   );

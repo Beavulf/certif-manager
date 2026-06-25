@@ -6,13 +6,15 @@ import {
   Calendar,
   ChevronRight,
   FileBadge2,
+  History,
   Link2,
   Loader2,
   Mail,
   Pencil,
+  RefreshCw,
   User,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { AssignableCertificateSelect } from '@/components/employees/assignable-certificate-select';
 import { CertificateDetailDialog } from '@/components/certificates/certificate-detail-dialog';
@@ -26,7 +28,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useUpdateCertificateEmployee } from '@/hooks/use-certificate';
-import { useGetEmployeeDetail } from '@/hooks/use-employee';
+import { useGetEmployeeDetail, useEmployeeActivity, useSyncEmployeeFromAd } from '@/hooks/use-employee';
 import { usePublicAppSettings } from '@/hooks/use-settings';
 import dayjs from '@/lib/dayjs-config';
 import {
@@ -41,6 +43,7 @@ import {
   countActiveCertificates,
   type EmployeeCertificateSummary,
 } from '@/lib/employee-table-utils';
+import { isEmployeeDataStale } from '@/lib/employee-presets';
 import { showActionError, showActionSuccess } from '@/lib/toast-messages';
 import { cn } from '@/lib/utils';
 
@@ -121,6 +124,17 @@ function CertificateListItem({
   );
 }
 
+function getNearestActiveCertificate(
+  certificates: EmployeeCertificateSummary[],
+): EmployeeCertificateSummary | null {
+  const active = certificates.filter((cert) => cert.status === 'active');
+  if (active.length === 0) return null;
+
+  return [...active].sort(
+    (a, b) => new Date(a.validTo).getTime() - new Date(b.validTo).getTime(),
+  )[0];
+}
+
 export function EmployeeDetailDialog({
   employeeId,
   open,
@@ -143,6 +157,24 @@ export function EmployeeDetailDialog({
 
   const { mutateAsync: assignCertificate, isPending: isAssigning } =
     useUpdateCertificateEmployee();
+  const { mutateAsync: syncFromAd, isPending: isSyncing } = useSyncEmployeeFromAd();
+  const { data: activity = [], isPending: isActivityPending } = useEmployeeActivity(
+    employeeId,
+    open,
+  );
+
+  const nearestCertificate = useMemo(
+    () => (data ? getNearestActiveCertificate(data.certificates) : null),
+    [data],
+  );
+
+  const nearestDaysLeft = nearestCertificate
+    ? daysUntilExpiry(nearestCertificate.validTo)
+    : null;
+
+  const isStale = data
+    ? isEmployeeDataStale(data.updatedAt, data.adUsername)
+    : false;
 
   useEffect(() => {
     if (!open) {
@@ -178,6 +210,21 @@ export function EmployeeDetailDialog({
     }
   };
 
+  const handleSyncFromAd = async () => {
+    if (!data) return;
+
+    try {
+      const updated = await syncFromAd(data.id);
+      showActionSuccess(
+        'Данные обновлены из AD',
+        updated ? `${updated.fullName} · ${updated.email}` : undefined,
+      );
+      await refetch();
+    } catch (error) {
+      showActionError(error, 'Синхронизация с AD');
+    }
+  };
+
   return (
     <>
       <CertificateDetailDialog
@@ -209,7 +256,7 @@ export function EmployeeDetailDialog({
                 </div>
               </div>
 
-              {data && (
+                  {data && (
                 <ConfigProvider
                   theme={{
                     token: { colorPrimary: '#b45309', borderRadius: 8 },
@@ -225,6 +272,14 @@ export function EmployeeDetailDialog({
                     <Tag color="blue">
                       Активных: {countActiveCertificates(data.certificates)}
                     </Tag>
+                    {nearestCertificate && nearestDaysLeft != null ? (
+                      <Tag color={nearestDaysLeft <= 7 ? 'red' : 'orange'}>
+                        Ближайшее истечение: {getDaysLeftLabel(nearestDaysLeft)}
+                      </Tag>
+                    ) : null}
+                    {isStale ? (
+                      <Tag color="volcano">Данные AD устарели</Tag>
+                    ) : null}
                   </div>
                 </ConfigProvider>
               )}
@@ -260,7 +315,19 @@ export function EmployeeDetailDialog({
                   <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Контактные данные
                   </h3>
-                  <DetailRow icon={Mail} label="Email" value={data.email} />
+                  <DetailRow
+                    icon={Mail}
+                    label="Email"
+                    value={
+                      <a
+                        href={`mailto:${data.email}`}
+                        className="text-amber-800 hover:underline"
+                      >
+                        {data.email}
+                      </a>
+                    }
+                    copyValue={data.email}
+                  />
                   <DetailRow
                     icon={User}
                     label="Логин AD"
@@ -277,9 +344,33 @@ export function EmployeeDetailDialog({
                   />
                   <DetailRow
                     icon={Calendar}
-                    label="Добавлен в систему"
-                    value={dayjs(data.createdAt).format('DD.MM.YYYY HH:mm')}
+                    label="Обновлён"
+                    value={dayjs(data.updatedAt).format('DD.MM.YYYY HH:mm')}
                   />
+                  {data.adUsername ? (
+                    <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="cursor-pointer gap-1.5"
+                        disabled={isSyncing}
+                        onClick={handleSyncFromAd}
+                      >
+                        {isSyncing ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="size-3.5" />
+                        )}
+                        Обновить из AD
+                      </Button>
+                      {isStale ? (
+                        <span className="text-xs text-amber-800">
+                          Рекомендуется синхронизировать данные из Active Directory
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </section>
 
                 <section>
@@ -400,6 +491,51 @@ export function EmployeeDetailDialog({
                       ))}
                     </div>
                   ) : null}
+                </section>
+
+                <section className="rounded-xl border border-border/70 bg-background/80 p-4 sm:p-5">
+                  <div className="mb-3 flex items-center gap-2">
+                    <History className="size-4 text-amber-700" />
+                    <h3 className="text-sm font-semibold text-foreground">
+                      История изменений
+                    </h3>
+                  </div>
+                  {isActivityPending ? (
+                    <p className="text-sm text-muted-foreground">Загрузка…</p>
+                  ) : activity.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Событий по этому сотруднику пока нет
+                    </p>
+                  ) : (
+                    <ul
+                      className={cn(
+                        'space-y-2',
+                        activity.length > 3 &&
+                          'max-h-[min(240px,32vh)] overflow-y-auto overscroll-contain pr-1',
+                      )}
+                    >
+                      {activity.map((item) => (
+                        <li
+                          key={item.id}
+                          className="rounded-lg border border-border/60 px-3 py-2.5 text-sm"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-medium text-foreground">
+                              {item.actionLabel}
+                            </span>
+                            <span className="text-xs tabular-nums text-muted-foreground">
+                              {dayjs(item.createdAt).format('DD.MM.YY HH:mm')}
+                            </span>
+                          </div>
+                          {item.displayName ? (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {item.displayName}
+                            </p>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </section>
               </div>
             )}

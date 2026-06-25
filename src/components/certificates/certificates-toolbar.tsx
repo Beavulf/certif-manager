@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { CertificateGroupBy } from '@/lib/certificate-table-utils';
+import { getPresetLabel, type CertificatePresetId } from '@/lib/certificate-presets';
 import { cn } from '@/lib/utils';
 
 const GROUP_OPTIONS: { value: CertificateGroupBy; label: string }[] = [
@@ -77,25 +78,40 @@ function formatRecordsCount(count: number): string {
 
 export function CertificatesTableHeader({
   totalCount,
+  totalInSystem,
+  activePreset,
   selectedCount,
   deleting,
   onClearSelection,
   onBulkDelete,
 }: {
   totalCount: number;
+  totalInSystem?: number;
+  activePreset?: CertificatePresetId | null;
   selectedCount: number;
   deleting?: boolean;
   onClearSelection: () => void;
   onBulkDelete: () => void;
 }) {
+  const showFilteredHint =
+    activePreset && totalInSystem != null && totalCount !== totalInSystem;
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h2 className="text-base font-semibold text-foreground">
           Список сертификатов
+          {activePreset ? (
+            <span className="ml-2 text-sm font-medium text-amber-800">
+              · {getPresetLabel(activePreset)}
+            </span>
+          ) : null}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {totalCount} {formatRecordsCount(totalCount)}
+          {showFilteredHint ? (
+            <span> из {totalInSystem} в системе</span>
+          ) : null}
           {selectedCount > 0 && (
             <span className="text-foreground">
               {' '}

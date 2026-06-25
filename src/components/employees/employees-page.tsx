@@ -1,22 +1,37 @@
 'use client';
 
 import { Select } from 'antd';
-import { Plus, Search, UserRound } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { FileSpreadsheet, Plus, Search } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { EmployeeBulkActions } from '@/components/employees/employee-bulk-actions';
 import { EmployeeDetailDialog } from '@/components/employees/employee-detail-dialog';
 import { EmployeeFormDialog } from '@/components/employees/employee-form-dialog';
+import { EmployeeImportDialog } from '@/components/employees/employee-import-dialog';
+import { EmployeePresetFilters } from '@/components/employees/employee-preset-filters';
+import { EmployeesEmptyState } from '@/components/employees/employees-empty-state';
 import { EmployeesStats } from '@/components/employees/employees-stats';
 import { EmployeesTable } from '@/components/employees/employees-table';
+import { TableSkeleton } from '@/components/ui/table-skeleton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
+  useBulkAssignCertificates,
+  useBulkDeactivateEmployees,
   useCreateEmployee,
   useDeleteEmployee,
   useGetEmployeesPage,
   useUpdateEmployee,
 } from '@/hooks/use-employee';
+import {
+  applyEmployeePreset,
+  countByEmployeePreset,
+  getPresetLabel,
+  isEmployeePresetId,
+  type EmployeePresetId,
+} from '@/lib/employee-presets';
 import {
   computeEmployeeStats,
   filterEmployees,
@@ -37,15 +52,26 @@ type EmployeesPageProps = {
 };
 
 export function EmployeesPage({ initial }: EmployeesPageProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const presetParam = searchParams.get('preset');
+  const actionParam = searchParams.get('action');
+  const highlightId = searchParams.get('highlight');
+
   const initialData = initial.success ? initial.data : [];
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] =
     useState<EmployeeStatusFilter>('all');
+  const [activePreset, setActivePreset] = useState<EmployeePresetId | null>(
+    isEmployeePresetId(presetParam) ? presetParam : null,
+  );
+  const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
 
   const [detailEmployeeId, setDetailEmployeeId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [editingEmployee, setEditingEmployee] =
     useState<EmployeeListItem | null>(null);
@@ -57,13 +83,40 @@ export function EmployeesPage({ initial }: EmployeesPageProps) {
     useUpdateEmployee();
   const { mutateAsync: deleteEmployee, isPending: isDeleting } =
     useDeleteEmployee();
+  const { mutateAsync: bulkDeactivate, isPending: isBulkDeactivating } =
+    useBulkDeactivateEmployees();
+  const { mutateAsync: bulkAssign, isPending: isBulkAssigning } =
+    useBulkAssignCertificates();
 
-  const filtered = useMemo(
+  const searched = useMemo(
     () => filterEmployees(data, search, statusFilter),
     [data, search, statusFilter],
   );
 
+  const filtered = useMemo(
+    () => applyEmployeePreset(searched, activePreset),
+    [searched, activePreset],
+  );
+
+  const presetCounts = useMemo(() => countByEmployeePreset(data), [data]);
   const stats = useMemo(() => computeEmployeeStats(data), [data]);
+
+  const updatePreset = useCallback(
+    (preset: EmployeePresetId | null) => {
+      setActivePreset(preset);
+      setSelectedRowKeys([]);
+
+      const params = new URLSearchParams(searchParams.toString());
+      if (preset) params.set('preset', preset);
+      else params.delete('preset');
+
+      const query = params.toString();
+      router.replace(query ? `/employees?${query}` : '/employees', {
+        scroll: false,
+      });
+    },
+    [router, searchParams],
+  );
 
   const openCreate = () => {
     setFormMode('create');
@@ -96,6 +149,34 @@ export function EmployeesPage({ initial }: EmployeesPageProps) {
       }
     } catch (err) {
       showActionError(err, 'Удаление сотрудника');
+    }
+  };
+
+  const handleBulkDeactivate = async () => {
+    try {
+      const result = await bulkDeactivate(selectedRowKeys);
+      showActionSuccess(
+        'Деактивация завершена',
+        `Обновлено сотрудников: ${result?.updatedCount ?? 0}`,
+      );
+      setSelectedRowKeys([]);
+    } catch (err) {
+      showActionError(err, 'Массовая деактивация');
+    }
+  };
+
+  const handleBulkAssign = async () => {
+    try {
+      const result = await bulkAssign(selectedRowKeys);
+      showActionSuccess(
+        'Привязка завершена',
+        `Привязано: ${result?.assignedCount ?? 0}${
+          result?.skippedCount ? ` · без совпадений: ${result.skippedCount}` : ''
+        }`,
+      );
+      setSelectedRowKeys([]);
+    } catch (err) {
+      showActionError(err, 'Массовая привязка сертификатов');
     }
   };
 
@@ -135,6 +216,32 @@ export function EmployeesPage({ initial }: EmployeesPageProps) {
   };
 
   useEffect(() => {
+    if (isEmployeePresetId(presetParam)) {
+      setActivePreset(presetParam);
+    } else if (!presetParam) {
+      setActivePreset(null);
+    }
+  }, [presetParam]);
+
+  useEffect(() => {
+    if (actionParam === 'create') {
+      openCreate();
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('action');
+      const query = params.toString();
+      router.replace(query ? `/employees?${query}` : '/employees', {
+        scroll: false,
+      });
+    }
+  }, [actionParam, router, searchParams]);
+
+  useEffect(() => {
+    if (highlightId) {
+      openDetail(highlightId);
+    }
+  }, [highlightId]);
+
+  useEffect(() => {
     if (error) {
       showActionError(
         error,
@@ -155,10 +262,14 @@ export function EmployeesPage({ initial }: EmployeesPageProps) {
   }, [initial]);
 
   const isEmpty = !isPending && data.length === 0;
+  const isInitialLoading = isPending && data.length === 0;
+  const hasData = !isPending && data.length > 0;
+  const isFilteredEmpty = hasData && filtered.length === 0;
   const submitting = isCreating || isUpdating;
+  const bulkBusy = isBulkDeactivating || isBulkAssigning;
 
   return (
-    <div className="flex max-h-[calc(100dvh-10rem)] min-h-0 w-full flex-col gap-5 overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
       <EmployeeDetailDialog
         employeeId={detailEmployeeId}
         open={detailOpen}
@@ -181,94 +292,123 @@ export function EmployeesPage({ initial }: EmployeesPageProps) {
         submitting={submitting}
       />
 
+      <EmployeeImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={() => refetch()}
+      />
+
       <Card className="w-full shrink-0 border-border/70 shadow-sm">
-        <CardContent className="flex flex-wrap items-center gap-3 p-4 lg:gap-4">
-          <div className="relative min-w-[240px] flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              type="text"
-              placeholder="Поиск по ФИО, email, отделу, логину"
-              className="h-11 w-full pl-9"
+        <CardContent className="space-y-3 p-4">
+          <div className="flex flex-wrap items-center gap-3 lg:gap-4">
+            <div className="relative min-w-[240px] flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                type="text"
+                data-page-search-input
+                placeholder="Поиск по ФИО, email, отделу, логину"
+                className="h-11 w-full pl-9"
+              />
+            </div>
+
+            <Select
+              value={statusFilter}
+              onChange={(value) => setStatusFilter(value)}
+              options={STATUS_OPTIONS.map((option) => ({
+                value: option.value,
+                label: option.label,
+              }))}
+              className="h-11 min-w-[180px]"
             />
+
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 cursor-pointer gap-2"
+              onClick={() => setImportOpen(true)}
+            >
+              <FileSpreadsheet className="size-4" />
+              Импорт CSV
+            </Button>
+
+            <Button type="button" className="h-11 cursor-pointer gap-2" onClick={openCreate}>
+              <Plus className="size-4" />
+              Добавить сотрудника
+            </Button>
           </div>
 
-          <Select
-            value={statusFilter}
-            onChange={(value) => setStatusFilter(value)}
-            options={STATUS_OPTIONS.map((option) => ({
-              value: option.value,
-              label: option.label,
-            }))}
-            className="h-11 min-w-[180px]"
-          />
+          {hasData ? (
+            <EmployeePresetFilters
+              activePreset={activePreset}
+              counts={presetCounts}
+              onChange={updatePreset}
+            />
+          ) : null}
 
-          <Button type="button" className="h-11 cursor-pointer" onClick={openCreate}>
-            <Plus className="size-4" />
-            Добавить сотрудника
-          </Button>
+          <EmployeeBulkActions
+            selectedCount={selectedRowKeys.length}
+            busy={bulkBusy}
+            onDeactivate={handleBulkDeactivate}
+            onAssignCertificates={handleBulkAssign}
+            onClearSelection={() => setSelectedRowKeys([])}
+          />
         </CardContent>
       </Card>
 
-      {!isEmpty && <EmployeesStats stats={stats} loading={isPending} />}
+      {hasData && <EmployeesStats stats={stats} loading={isPending} />}
 
-      <Card className="flex min-h-0 w-full flex-1 flex-col border-border/70 shadow-sm">
-        <CardHeader className="shrink-0 border-b border-border/70 px-6 py-4">
+      <Card className="flex min-h-0 w-full flex-1 flex-col gap-0 overflow-hidden border-border/70 py-0 shadow-sm">
+        <CardHeader className="shrink-0 border-b border-border/70 px-6 py-3">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-foreground">
-              {isEmpty ? 'Список сотрудников' : `Сотрудники · ${filtered.length}`}
+              {isEmpty
+                ? 'Список сотрудников'
+                : `Сотрудники · ${filtered.length}`}
+              {activePreset ? (
+                <span className="ml-2 text-sm font-medium text-amber-800">
+                  · {getPresetLabel(activePreset)}
+                </span>
+              ) : null}
             </h2>
           </div>
         </CardHeader>
 
-        <CardContent className="min-h-0 flex-1 p-0">
-          {isEmpty ? (
-            <div className="px-6 py-14">
-              <div className="rounded-2xl border border-dashed border-border bg-accent/40 px-6 py-12 text-center">
-                <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700">
-                  <UserRound className="size-6" />
-                </div>
-
-                <h2 className="mt-4 text-lg font-semibold tracking-tight text-foreground">
-                  Сотрудники пока не добавлены
-                </h2>
-
-                <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Добавьте сотрудника вручную или загрузите сертификат с
-                  автоматическим созданием из Active Directory.
-                </p>
-
-                <div className="mt-5 flex items-center justify-center gap-3">
-                  <Button
-                    type="button"
-                    className="cursor-pointer"
-                    onClick={openCreate}
-                  >
-                    <Plus className="size-4" />
-                    Добавить сотрудника
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => refetch()}
-                    className="cursor-pointer"
-                    disabled={isPending}
-                  >
-                    Обновить список
-                  </Button>
-                </div>
-              </div>
+        <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+          {isInitialLoading ? (
+            <TableSkeleton rows={10} columns={6} />
+          ) : isEmpty ? (
+            <EmployeesEmptyState
+              onCreate={openCreate}
+              onImport={() => setImportOpen(true)}
+              onRefresh={() => refetch()}
+              refreshing={isPending}
+            />
+          ) : isFilteredEmpty ? (
+            <div className="px-6 py-14 text-center">
+              <p className="text-sm font-medium text-foreground">
+                По выбранному фильтру сотрудников нет
+              </p>
+              <Button
+                variant="outline"
+                className="mt-4 cursor-pointer"
+                onClick={() => updatePreset(null)}
+              >
+                Сбросить фильтр
+              </Button>
             </div>
           ) : (
             <EmployeesTable
               data={filtered}
               loading={isPending}
               deleting={isDeleting}
+              selectedRowKeys={selectedRowKeys}
+              onSelectionChange={setSelectedRowKeys}
               onView={openDetail}
               onEdit={openEdit}
               onDelete={handleDelete}
-              className="px-2 py-2"
+              className="min-h-0 flex-1 px-2 py-2"
             />
           )}
         </CardContent>

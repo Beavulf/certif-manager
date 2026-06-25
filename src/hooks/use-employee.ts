@@ -11,7 +11,14 @@ import { deleteEmployeeByIdAction } from '@/server/actions/employee/delete-emplo
 import { getEmployeeDetailAction } from '@/server/actions/employee/get-employee-detail-action';
 import { getEmployeesPageAction } from '@/server/actions/employee/get-employees-page-action';
 import { getEmployeesAction } from '@/server/actions/employee/get-employees-action';
+import { searchEmployeeAdAction } from '@/server/actions/employee/search-employee-ad-action';
 import { updateEmployeeByIdAction } from '@/server/actions/employee/update-employee-action';
+import {
+  bulkAssignCertificatesAction,
+  bulkDeactivateEmployeesAction,
+  syncEmployeeFromAdAction,
+} from '@/server/actions/employee/employee-bulk-actions';
+import { getEmployeeActivityAction } from '@/server/actions/employee/get-employee-activity-action';
 
 export function useGetEmployees() {
   return useQuery({
@@ -141,5 +148,82 @@ export function useDeleteEmployee() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
       await queryClient.invalidateQueries({ queryKey: queryKeys.certificates.all });
     },
+  });
+}
+
+export function useSearchEmployeeInAD() {
+  return useMutation({
+    mutationFn: async (query: string) => {
+      const result = await searchEmployeeAdAction(query);
+      if (!result.success) {
+        throw result;
+      }
+      return result.data;
+    },
+  });
+}
+
+export function useSyncEmployeeFromAd() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (employeeId: string) => {
+      const result = await syncEmployeeFromAdAction(employeeId);
+      if (!result.success) throw result;
+      return result.data;
+    },
+    onSuccess: async (_data, employeeId) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.employees.detail(employeeId),
+      });
+    },
+  });
+}
+
+export function useBulkDeactivateEmployees() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (employeeIds: string[]) => {
+      const result = await bulkDeactivateEmployeesAction(employeeIds);
+      if (!result.success) throw result;
+      return result.data;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+    },
+  });
+}
+
+export function useBulkAssignCertificates() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (employeeIds: string[]) => {
+      const result = await bulkAssignCertificatesAction(employeeIds);
+      if (!result.success) throw result;
+      return result.data;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.certificates.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+    },
+  });
+}
+
+export function useEmployeeActivity(employeeId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.employees.activity(employeeId ?? ''),
+    queryFn: async () => {
+      if (!employeeId) return [];
+      const result = await getEmployeeActivityAction(employeeId);
+      if (!result.success) throw result;
+      return result.data ?? [];
+    },
+    enabled: enabled && Boolean(employeeId),
+    ...QUERY_CONFIG,
   });
 }

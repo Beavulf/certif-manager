@@ -1,6 +1,6 @@
 'use client';
 
-import { ConfigProvider, Select, Table, Tag, Tooltip } from 'antd';
+import { Select, Table } from 'antd';
 import type { TableProps } from 'antd';
 import { Eye, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -8,6 +8,9 @@ import { useMemo, useState } from 'react';
 
 import { CertificateDetailDialog } from '@/components/certificates/certificate-detail-dialog';
 import { NotificationsStats } from '@/components/notifications/notifications-stats';
+import { AppDataTableProvider, AppDataTableShell } from '@/components/ui/app-data-table';
+import { DataTableAction } from '@/components/ui/data-table-action';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,6 +18,7 @@ import {
   useNotificationLogsPage,
   useRunNotificationCheck,
 } from '@/hooks/use-notifications';
+import { APP_TABLE_LOCALE, formatTableTotal } from '@/lib/ant-table-config';
 import dayjs from '@/lib/dayjs-config';
 import type { NotificationLogsQuery } from '@/schemas/notifications-schema';
 import type { NotificationLogsPage } from '@/server/actions/notifications/get-notification-logs-page-action';
@@ -65,11 +69,11 @@ export function NotificationsPage({ initial }: NotificationsPageProps) {
       {
         title: 'Статус',
         dataIndex: 'status',
-        width: 120,
+        width: 110,
         render: (status: string) => (
-          <Tag color={status === 'sent' ? 'green' : 'red'}>
+          <StatusBadge tone={status === 'sent' ? 'success' : 'danger'}>
             {status === 'sent' ? 'Отправлено' : 'Ошибка'}
-          </Tag>
+          </StatusBadge>
         ),
       },
       {
@@ -131,22 +135,17 @@ export function NotificationsPage({ initial }: NotificationsPageProps) {
         key: 'actions',
         width: 56,
         fixed: 'right',
+        align: 'center',
         render: (_: unknown, record) =>
           record.certificateId ? (
-            <Tooltip title="Открыть сертификат">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                onClick={() => {
-                  setDetailCertificateId(record.certificateId);
-                  setDetailOpen(true);
-                }}
-              >
-                <Eye className="size-4" />
-              </Button>
-            </Tooltip>
+            <DataTableAction
+              icon={Eye}
+              label="Открыть сертификат"
+              onClick={() => {
+                setDetailCertificateId(record.certificateId);
+                setDetailOpen(true);
+              }}
+            />
           ) : null,
       },
     ],
@@ -184,9 +183,7 @@ export function NotificationsPage({ initial }: NotificationsPageProps) {
             />
           </div>
 
-          <ConfigProvider
-            theme={{ token: { colorPrimary: '#b45309', borderRadius: 10 } }}
-          >
+          <AppDataTableProvider>
             <div className="flex flex-wrap gap-3">
               <Select
                 value={filters.status}
@@ -194,7 +191,7 @@ export function NotificationsPage({ initial }: NotificationsPageProps) {
                   updateFilters({ status: value as NotificationLogsQuery['status'] })
                 }
                 options={[...STATUS_OPTIONS]}
-                style={{ minWidth: 150 }}
+                className="min-w-[150px]"
               />
               <Select
                 value={filters.period}
@@ -202,10 +199,10 @@ export function NotificationsPage({ initial }: NotificationsPageProps) {
                   updateFilters({ period: value as NotificationLogsQuery['period'] })
                 }
                 options={[...PERIOD_OPTIONS]}
-                style={{ minWidth: 150 }}
+                className="min-w-[150px]"
               />
             </div>
-          </ConfigProvider>
+          </AppDataTableProvider>
 
           <Button
             onClick={() => runCheck.mutateAsync({})}
@@ -233,30 +230,33 @@ export function NotificationsPage({ initial }: NotificationsPageProps) {
         </CardHeader>
 
         <CardContent className="p-0">
-          <ConfigProvider
-            theme={{ token: { colorPrimary: '#b45309', borderRadius: 8 } }}
-          >
-            <Table
-              rowKey="id"
-              size="middle"
-              loading={isPending || isFetching}
-              columns={columns}
-              dataSource={pageData.items}
-              scroll={{ x: 1100 }}
-              pagination={{
-                current: filters.page,
-                pageSize: filters.pageSize,
-                total: pageData.total,
-                showSizeChanger: true,
-                pageSizeOptions: [10, 25, 50, 100],
-                onChange: (page, pageSize) =>
-                  setFilters((prev) => ({ ...prev, page, pageSize })),
-              }}
-              locale={{
-                emptyText: 'Уведомлений пока нет. Запустите проверку или дождитесь cron.',
-              }}
-            />
-          </ConfigProvider>
+          <AppDataTableProvider>
+            <AppDataTableShell>
+              <Table
+                rowKey="id"
+                size="small"
+                loading={isPending || isFetching}
+                columns={columns}
+                dataSource={pageData.items}
+                scroll={{ x: 1100 }}
+                locale={{
+                  ...APP_TABLE_LOCALE,
+                  emptyText:
+                    'Уведомлений пока нет. Запустите проверку или дождитесь cron.',
+                }}
+                pagination={{
+                  current: filters.page,
+                  pageSize: filters.pageSize,
+                  total: pageData.total,
+                  showSizeChanger: true,
+                  pageSizeOptions: [10, 25, 50, 100],
+                  showTotal: formatTableTotal,
+                  onChange: (page, pageSize) =>
+                    setFilters((prev) => ({ ...prev, page, pageSize })),
+                }}
+              />
+            </AppDataTableShell>
+          </AppDataTableProvider>
         </CardContent>
       </Card>
     </div>

@@ -16,6 +16,7 @@ export type CertificatesWithIncludes = Certificate & {
   employee?: Employee | null,
   documents?: Document[],
   notificationLog?: NotificationLog
+  _count?: { documents: number },
 }
 
 export const CertificateFields =  PrismaBrowser.CertificateScalarFieldEnum;

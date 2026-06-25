@@ -35,9 +35,31 @@ export type DashboardAuditItem = {
   displayName: string | null;
 };
 
+export type DashboardExpiryCalendarItem = {
+  id: string;
+  subjectCN: string;
+  employeeName: string | null;
+  validTo: Date;
+  daysLeft: number;
+};
+
+export type DashboardExpiryCalendarWeek = {
+  weekStart: string;
+  weekEnd: string;
+  label: string;
+  count: number;
+  items: DashboardExpiryCalendarItem[];
+};
+
+export type DashboardExpiryCalendar = {
+  weeks: DashboardExpiryCalendarWeek[];
+  totalInRange: number;
+};
+
 export type DashboardData = {
   kpi: DashboardKpi;
   attentionCerts: DashboardAttentionCert[];
+  expiryCalendar: DashboardExpiryCalendar;
   problems: DashboardProblems;
   recentActivity: DashboardAuditItem[];
   systemStatus: SystemStatus;

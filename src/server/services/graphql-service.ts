@@ -194,14 +194,20 @@ export async function getEmployeeInfoFromAD(
         fieldErrors: parsed.error.flatten().fieldErrors,
       }
     }
-    if (parsed.data.searchUser.length === 0) {
+
+    const validUsers = parsed.data.searchUser.filter(
+      (user) => user.cn.trim().length > 0 && user.sAMAccountName.trim().length > 0,
+    );
+
+    if (validUsers.length === 0) {
       return {
         success: false,
         error: 'Сотрудник не найден в AD',
         code: 'NOT_FOUND',
       }
     }
-    return { success: true, data: parsed.data.searchUser as EmployeeADInfo }
+
+    return { success: true, data: validUsers as EmployeeADInfo }
   } catch(error) {
     return mapErrorToSafeResult(error);
   }

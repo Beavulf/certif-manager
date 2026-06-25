@@ -46,7 +46,17 @@ function fileKey(file: File): string {
   return `${file.name}-${file.size}-${file.lastModified}`
 }
 
-export function UploadDialog() {
+type UploadDialogProps = {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
+};
+
+export function UploadDialog({
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+  hideTrigger = false,
+}: UploadDialogProps = {}) {
   const queryClient = useQueryClient();
   const { data: appSettings } = usePublicAppSettings();
   const uploadLimits = appSettings
@@ -62,7 +72,9 @@ export function UploadDialog() {
     invalidate: false
   });
 
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = controlledOnOpenChange ?? setInternalOpen;
   const [files, setFiles] = useState<File[]>([]);
   const [employeeId, setEmployeeId] = useState('');
   const [notes, setNotes] = useState('');
@@ -224,14 +236,16 @@ export function UploadDialog() {
         }
       }}
     >
-      <DialogTrigger
-        render={
-          <Button className="cursor-pointer shrink-0">
-            <Upload className="size-4" />
-            Загрузить сертификат(ы)
-          </Button>
-        }
-      />
+      {!hideTrigger ? (
+        <DialogTrigger
+          render={
+            <Button className="cursor-pointer shrink-0">
+              <Upload className="size-4" />
+              Загрузить сертификат(ы)
+            </Button>
+          }
+        />
+      ) : null}
       <DialogContent className="sm:max-w-lg max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Загрузка сертификатов</DialogTitle>

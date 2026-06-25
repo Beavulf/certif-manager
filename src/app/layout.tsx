@@ -8,8 +8,8 @@ import { Toaster } from "sonner";
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: 'Certif Manager',
-  description: 'Manage certificates and expiration dates',
+  title: 'Менеджер сертификатов',
+  description: 'Учёт сертификатов сотрудников, сроков действия и уведомлений',
 };
 
 export default function RootLayout({

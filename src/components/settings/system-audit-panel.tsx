@@ -1,6 +1,6 @@
 'use client';
 
-import { ConfigProvider, Table, Tag } from 'antd';
+import { Table, Tag } from 'antd';
 import {
   CheckCircle2,
   Clock3,
@@ -10,7 +10,9 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
+import { AppDataTableProvider, AppDataTableShell } from '@/components/ui/app-data-table';
 import { useAuditLogs } from '@/hooks/use-settings';
+import { APP_TABLE_LOCALE, formatTableTotal } from '@/lib/ant-table-config';
 import { cn } from '@/lib/utils';
 import { AUDIT_ACTION_LABELS } from '@/types/settings-types';
 import type { SystemStatus } from '@/types/settings-types';
@@ -101,61 +103,65 @@ export function SystemAuditPanel({ systemStatus }: SystemAuditPanelProps) {
         title="Журнал аудита"
         description="История действий пользователей в системе."
       >
-        <ConfigProvider
-          theme={{
-            token: {
-              colorPrimary: '#b45309',
-              borderRadius: 8,
-            },
-          }}
-        >
-          <Table
-            size="small"
-            loading={isPending}
-            rowKey="id"
-            dataSource={data?.items ?? []}
-            pagination={{
-              current: page,
-              pageSize,
-              total: data?.total ?? 0,
-              showSizeChanger: true,
-              pageSizeOptions: [10, 25, 50, 100],
-              onChange: (nextPage, nextSize) => {
-                setPage(nextPage);
-                setPageSize(nextSize);
-              },
-            }}
-            columns={[
-              {
-                title: 'Время',
-                dataIndex: 'createdAt',
-                width: 160,
-                render: (value: string) =>
-                  new Date(value).toLocaleString('ru-RU'),
-              },
-              {
-                title: 'Пользователь',
-                dataIndex: 'adUsername',
-                width: 140,
-                render: (value: string | null) => value ?? '—',
-              },
-              {
-                title: 'Действие',
-                dataIndex: 'action',
-                width: 180,
-                render: (value: string) => (
-                  <Tag color="gold">{AUDIT_ACTION_LABELS[value] ?? value}</Tag>
-                ),
-              },
-              {
-                title: 'Описание',
-                dataIndex: 'displayName',
-                ellipsis: true,
-                render: (value: string | null) => value ?? '—',
-              },
-            ]}
-          />
-        </ConfigProvider>
+        <AppDataTableProvider>
+          <AppDataTableShell>
+            <Table
+              size="small"
+              loading={isPending}
+              rowKey="id"
+              dataSource={data?.items ?? []}
+              scroll={{ x: 800 }}
+              locale={APP_TABLE_LOCALE}
+              pagination={{
+                current: page,
+                pageSize,
+                total: data?.total ?? 0,
+                showSizeChanger: true,
+                pageSizeOptions: [10, 25, 50, 100],
+                showTotal: formatTableTotal,
+                onChange: (nextPage, nextSize) => {
+                  setPage(nextPage);
+                  setPageSize(nextSize);
+                },
+              }}
+              columns={[
+                {
+                  title: 'Время',
+                  dataIndex: 'createdAt',
+                  width: 150,
+                  render: (value: string) => (
+                    <span className="text-muted-foreground">
+                      {new Date(value).toLocaleString('ru-RU')}
+                    </span>
+                  ),
+                },
+                {
+                  title: 'Пользователь',
+                  dataIndex: 'adUsername',
+                  width: 130,
+                  ellipsis: true,
+                  render: (value: string | null) => value ?? '—',
+                },
+                {
+                  title: 'Действие',
+                  dataIndex: 'action',
+                  width: 160,
+                  render: (value: string) => (
+                    <Tag color="gold" className="!m-0">
+                      {AUDIT_ACTION_LABELS[value] ?? value}
+                    </Tag>
+                  ),
+                },
+                {
+                  title: 'Описание',
+                  dataIndex: 'displayName',
+                  ellipsis: true,
+                  render: (value: string | null) => value ?? '—',
+                },
+              ]}
+            />
+          </AppDataTableShell>
+        </AppDataTableProvider>
       </SettingsSectionCard>
     </div>
   );

@@ -1,5 +1,6 @@
 'use server';
 
+import { buildExpiryCalendar } from '@/lib/dashboard-expiry-calendar';
 import {
   buildAttentionCertificates,
   computeDashboardKpi,
@@ -84,11 +85,14 @@ export async function getDashboardAction(): Promise<SafeResult<DashboardData>> {
       10,
     );
 
+    const expiryCalendar = buildExpiryCalendar(certificates, expiryThresholds);
+
     return {
       success: true,
       data: {
         kpi,
         attentionCerts,
+        expiryCalendar,
         problems: {
           unassignedCertificates,
           employeesWithoutCertificates,

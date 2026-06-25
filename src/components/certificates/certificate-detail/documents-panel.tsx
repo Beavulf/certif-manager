@@ -13,7 +13,7 @@ import { useEffect, useRef } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { showActionError, showActionSuccess } from '@/lib/toast-messages';
-import { DOC_FILE_TYPES } from '@/constants/upload-config';
+import { buildFileAcceptAttribute, DOC_FILE_TYPES } from '@/constants/upload-config';
 import {
   useCertificateDocuments,
   useDeleteCertificateDocument,
@@ -116,7 +116,7 @@ export function CertificateDocumentsPanel({
           <input
             ref={inputRef}
             type="file"
-            accept={DOC_FILE_TYPES.doc + DOC_FILE_TYPES.docx + DOC_FILE_TYPES.pdf}
+            accept={buildFileAcceptAttribute(Object.values(DOC_FILE_TYPES))}
             className="hidden"
             disabled={busy}
             onChange={(e) => handleUpload(e.target.files)}

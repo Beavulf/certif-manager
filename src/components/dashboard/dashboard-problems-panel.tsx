@@ -22,7 +22,7 @@ const ITEMS = [
     label: 'Без привязки к сотруднику',
     description: 'Уведомления могут не отправиться',
     icon: Link2Off,
-    href: '/certificates',
+    href: '/certificates?preset=unassigned',
     warnIfPositive: true,
   },
   {
@@ -30,7 +30,7 @@ const ITEMS = [
     label: 'Сотрудники без сертификатов',
     description: 'Активные записи без сертификатов',
     icon: UserRoundX,
-    href: '/employees',
+    href: '/employees?preset=no-certs',
     warnIfPositive: true,
   },
   {
@@ -38,7 +38,7 @@ const ITEMS = [
     label: 'Ошибки email за 7 дней',
     description: 'Неудачные отправки напоминаний',
     icon: BellRing,
-    href: '/notifications',
+    href: '/notifications?status=failed&period=7d',
     warnIfPositive: true,
   },
 ] as const;

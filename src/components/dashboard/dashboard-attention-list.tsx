@@ -39,8 +39,8 @@ export function DashboardAttentionList({ items }: DashboardAttentionListProps) {
         }}
       />
 
-      <Card className="flex h-full flex-col border-border/70 shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between border-b border-border/70 px-6 py-4">
+      <Card className="border-border/70 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between border-b border-border/70 px-5 py-3">
           <div>
             <div className="flex items-center gap-2">
               <ShieldAlert className="size-4 text-amber-700" />
@@ -61,9 +61,9 @@ export function DashboardAttentionList({ items }: DashboardAttentionListProps) {
           </Link>
         </CardHeader>
 
-        <CardContent className="min-h-0 flex-1 p-0">
+        <CardContent className="p-0">
           {items.length === 0 ? (
-            <div className="px-6 py-10 text-center">
+            <div className="px-5 py-8 text-center">
               <div className="mx-auto flex size-12 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700">
                 <FileBadge2 className="size-5" />
               </div>
@@ -76,7 +76,7 @@ export function DashboardAttentionList({ items }: DashboardAttentionListProps) {
               </p>
             </div>
           ) : (
-            <div className="max-h-[min(420px,50vh)] space-y-2 overflow-y-auto px-4 py-4">
+            <div className="max-h-[min(320px,38vh)] space-y-2 overflow-y-auto px-3 py-3">
               {items.map((cert) => (
                 <button
                   key={cert.id}

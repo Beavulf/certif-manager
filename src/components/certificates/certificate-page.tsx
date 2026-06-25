@@ -1,7 +1,8 @@
 'use client';
 
 import { FileBadge2, Search } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -16,6 +17,12 @@ import {
   type CertificateGroupBy,
 } from '@/lib/certificate-table-utils';
 import { DEFAULT_EXPIRY_THRESHOLDS } from '@/lib/certificate-expiry';
+import {
+  applyCertificatePreset,
+  countByPreset,
+  isCertificatePresetId,
+  type CertificatePresetId,
+} from '@/lib/certificate-presets';
 import { showActionError, showActionSuccess } from '@/lib/toast-messages';
 import { usePublicAppSettings } from '@/hooks/use-settings';
 import type { Certificate } from '@/generated/prisma/client';
@@ -23,11 +30,14 @@ import type { SafeResult } from '@/types/safe-result-types';
 import { CertificateFields } from '@/types/certificate-types';
 
 import { CertificateDetailDialog } from './certificate-detail-dialog';
+import { CertificateExportButton } from './certificate-export-button';
+import { CertificatePresetFilters } from './certificate-preset-filters';
 import { CertificatesStats } from './certificates-stats';
 import { CertificatesTable } from './certificates-table';
 import { CertificatesTableHeader, GroupBySelect } from './certificates-toolbar';
 import { FilterSelect } from './filter-select';
 import { UploadDialog } from './upload-dialog/upload-dialog';
+import { TableSkeleton } from '@/components/ui/table-skeleton';
 
 const FILTER_FIELDS = [
   { label: 'ФИО', value: CertificateFields.subjectCN },
@@ -48,10 +58,17 @@ export function CertificatesPage({
 }: {
   initial: SafeResult<Certificate[]>;
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const presetParam = searchParams.get('preset');
+  const certIdParam = searchParams.get('id');
+  const initialPreset = isCertificatePresetId(presetParam) ? presetParam : null;
+
   const [search, setSearch] = useState('');
   const initialData = initial.success ? initial.data : [];
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [groupBy, setGroupBy] = useState<CertificateGroupBy>('none');
+  const [activePreset, setActivePreset] = useState<CertificatePresetId | null>(initialPreset);
   const [selectedRowKeys, setSelectedRowKeys] = useState<string[]>([]);
   const [detailCertificateId, setDetailCertificateId] = useState<string | null>(
     null,
@@ -78,10 +95,54 @@ export function CertificatesPage({
     ? { warningDays: appSettings.warningDays, criticalDays: appSettings.criticalDays }
     : DEFAULT_EXPIRY_THRESHOLDS;
 
-  const stats = useMemo(
-    () => computeCertificateStats(data, expiryThresholds),
+  const presetCounts = useMemo(
+    () => countByPreset(data, expiryThresholds),
     [data, expiryThresholds],
   );
+
+  const filteredData = useMemo(
+    () => applyCertificatePreset(data, activePreset, expiryThresholds),
+    [data, activePreset, expiryThresholds],
+  );
+
+  const stats = useMemo(
+    () => computeCertificateStats(filteredData, expiryThresholds),
+    [filteredData, expiryThresholds],
+  );
+
+  const updatePreset = useCallback(
+    (preset: CertificatePresetId | null) => {
+      setActivePreset(preset);
+      setSelectedRowKeys([]);
+
+      const params = new URLSearchParams(searchParams.toString());
+      if (preset) {
+        params.set('preset', preset);
+      } else {
+        params.delete('preset');
+      }
+
+      const query = params.toString();
+      router.replace(query ? `/certificates?${query}` : '/certificates', {
+        scroll: false,
+      });
+    },
+    [router, searchParams],
+  );
+
+  useEffect(() => {
+    if (isCertificatePresetId(presetParam)) {
+      setActivePreset(presetParam);
+    } else if (!presetParam) {
+      setActivePreset(null);
+    }
+  }, [presetParam]);
+
+  useEffect(() => {
+    if (certIdParam) {
+      openCertificateDetail(certIdParam);
+    }
+  }, [certIdParam]);
 
   const handleDeleteCertificate = async (id: string) => {
     try {
@@ -142,11 +203,14 @@ export function CertificatesPage({
     }
   }, [initial]);
 
+  const hasAnyCertificates = !isPending && data.length > 0;
+  const isFilteredEmpty = hasAnyCertificates && filteredData.length === 0;
   const isEmpty = !isPending && data.length === 0;
+  const isInitialLoading = isPending && data.length === 0;
   const deleting = isDeleting || isBulkDeleting;
 
   return (
-    <div className="flex min-h-[calc(100dvh-7.5rem)] w-full flex-col gap-5">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
       <CertificateDetailDialog
         certificateId={detailCertificateId}
         open={detailOpen}
@@ -157,34 +221,54 @@ export function CertificatesPage({
       />
 
       <Card className="w-full shrink-0 border-border/70 shadow-sm">
-        <CardContent className="flex flex-wrap items-center gap-3 p-4 lg:gap-4">
-          <div className="relative min-w-[240px] flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <CardContent className="space-y-3 p-4">
+          <div className="flex flex-wrap items-center gap-3 lg:gap-4">
+            <div className="relative min-w-[240px] flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               type="text"
+              data-page-search-input
               placeholder="Поиск по ФИО, серийнику и остальным полям"
               className="h-11 w-full pl-9"
             />
+            </div>
+            <FilterSelect
+              items={FILTER_FIELDS}
+              value={selectedFields}
+              onValueChange={setSelectedFields}
+            />
+            <GroupBySelect value={groupBy} onValueChange={setGroupBy} />
+            <CertificateExportButton
+              data={filteredData}
+              selectedIds={selectedRowKeys}
+              activePreset={activePreset}
+              expiryThresholds={expiryThresholds}
+              disabled={isPending}
+            />
+            <UploadDialog />
           </div>
-          <FilterSelect
-            items={FILTER_FIELDS}
-            value={selectedFields}
-            onValueChange={setSelectedFields}
-          />
-          <GroupBySelect value={groupBy} onValueChange={setGroupBy} />
-          <UploadDialog />
+
+          {hasAnyCertificates ? (
+            <CertificatePresetFilters
+              activePreset={activePreset}
+              counts={presetCounts}
+              onChange={updatePreset}
+            />
+          ) : null}
         </CardContent>
       </Card>
 
-      {!isEmpty && <CertificatesStats stats={stats} loading={isPending} />}
+      {hasAnyCertificates && <CertificatesStats stats={stats} loading={isPending} />}
 
-      <Card className="flex min-h-0 w-full flex-1 flex-col border-border/70 shadow-sm">
-        <CardHeader className="shrink-0 border-b border-border/70 px-6 py-4">
-          {!isEmpty ? (
+      <Card className="flex min-h-0 w-full flex-1 flex-col gap-0 overflow-hidden border-border/70 py-0 shadow-sm">
+        <CardHeader className="shrink-0 border-b border-border/70 px-6 py-3">
+          {hasAnyCertificates ? (
             <CertificatesTableHeader
-              totalCount={data.length}
+              totalCount={filteredData.length}
+              totalInSystem={data.length}
+              activePreset={activePreset}
               selectedCount={selectedRowKeys.length}
               deleting={deleting}
               onClearSelection={() => setSelectedRowKeys([])}
@@ -197,8 +281,10 @@ export function CertificatesPage({
           )}
         </CardHeader>
 
-        <CardContent className="min-h-0 flex-1 p-0">
-          {isEmpty ? (
+        <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+          {isInitialLoading ? (
+            <TableSkeleton rows={10} columns={6} />
+          ) : isEmpty ? (
             <div className="px-6 py-14">
               <div className="rounded-2xl border border-dashed border-border bg-accent/40 px-6 py-12 text-center">
                 <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-700">
@@ -227,9 +313,25 @@ export function CertificatesPage({
                 </div>
               </div>
             </div>
+          ) : isFilteredEmpty ? (
+            <div className="px-6 py-14 text-center">
+              <p className="text-sm font-medium text-foreground">
+                По выбранному фильтру записей нет
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Попробуйте другой быстрый фильтр или сбросьте текущий.
+              </p>
+              <Button
+                variant="outline"
+                className="mt-4 cursor-pointer"
+                onClick={() => updatePreset(null)}
+              >
+                Сбросить фильтр
+              </Button>
+            </div>
           ) : (
             <CertificatesTable
-              data={data}
+              data={filteredData}
               groupBy={groupBy}
               selectedRowKeys={selectedRowKeys}
               onSelectionChange={setSelectedRowKeys}
@@ -238,6 +340,7 @@ export function CertificatesPage({
               onView={openCertificateDetail}
               onDelete={handleDeleteCertificate}
               expiryThresholds={expiryThresholds}
+              className="min-h-0 flex-1"
             />
           )}
         </CardContent>

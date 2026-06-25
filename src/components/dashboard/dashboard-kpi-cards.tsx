@@ -18,7 +18,7 @@ type DashboardKpiCardsProps = {
 const CARDS = [
   {
     key: 'totalCertificates' as const,
-    label: 'Всего сертификатов',
+    label: 'Всего',
     hint: 'В системе',
     icon: FileBadge2,
     href: '/certificates',
@@ -28,28 +28,29 @@ const CARDS = [
   {
     key: 'expiringSoon' as const,
     label: 'Скоро истекают',
-    hint: 'Сотрудников · актуальный сертификат',
+    hint: 'Актуальный сертификат',
     icon: ShieldAlert,
-    href: '/certificates',
+    href: '/certificates?preset=expiring',
     className: 'border-amber-200/80 bg-amber-50/60 text-amber-900',
     iconClassName: 'text-amber-700',
   },
   {
     key: 'expired' as const,
     label: 'Без действующего',
-    hint: 'Нужна новая загрузка',
+    hint: 'Нужна загрузка',
     icon: AlertTriangle,
-    href: '/certificates',
+    href: '/certificates?preset=expired',
     className: 'border-red-200/80 bg-red-50/60 text-red-900',
     iconClassName: 'text-red-700',
   },
   {
     key: 'notificationsToday' as const,
-    label: 'Уведомления сегодня',
+    label: 'Уведомления',
     hintKey: 'notificationsFailed' as const,
-    hintSuffix: 'с ошибкой всего',
+    hintSuffix: 'с ошибкой',
     icon: BellRing,
-    href: '/notifications',
+    href: '/notifications?period=today',
+    failedHref: '/notifications?status=failed',
     className: 'border-border/70 bg-card text-foreground',
     iconClassName: 'text-amber-700',
   },
@@ -59,7 +60,7 @@ export function DashboardKpiCards({ kpi }: DashboardKpiCardsProps) {
   const hasFailedNotifications = kpi.notificationsFailed > 0;
 
   return (
-    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       {CARDS.map((card) => {
         const Icon = card.icon;
         const value = kpi[card.key];
@@ -68,26 +69,30 @@ export function DashboardKpiCards({ kpi }: DashboardKpiCardsProps) {
           isNotificationsCard
             ? `${kpi.notificationsFailed} ${card.hintSuffix}`
             : card.hint;
+        const href =
+          isNotificationsCard && hasFailedNotifications && 'failedHref' in card
+            ? card.failedHref
+            : card.href;
 
         return (
           <Link
             key={card.key}
-            href={card.href}
+            href={href}
             className={cn(
-              'group flex items-center gap-3 rounded-xl border px-4 py-3.5 shadow-sm transition-all',
+              'group flex items-center gap-2.5 rounded-lg border px-3 py-2 shadow-sm transition-all',
               'hover:-translate-y-0.5 hover:shadow-md',
               card.className,
             )}
           >
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-background/70 transition-colors group-hover:bg-background">
-              <Icon className={cn('size-4', card.iconClassName)} />
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-border/50 bg-background/70 transition-colors group-hover:bg-background">
+              <Icon className={cn('size-3.5', card.iconClassName)} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">{card.label}</p>
-              <p className="text-2xl font-semibold tracking-tight">{value}</p>
+              <p className="truncate text-[11px] text-muted-foreground">{card.label}</p>
+              <p className="text-lg font-semibold leading-tight tracking-tight">{value}</p>
               <p
                 className={cn(
-                  'mt-0.5 truncate text-[11px]',
+                  'truncate text-[10px]',
                   isNotificationsCard && hasFailedNotifications
                     ? 'font-medium text-red-600'
                     : 'text-muted-foreground/90',

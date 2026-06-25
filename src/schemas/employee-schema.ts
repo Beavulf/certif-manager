@@ -97,14 +97,26 @@ export const updateEmployeeByIdSchema = z.object({
     .optional(),
 })
 
+const nullableAdString = z
+  .union([z.string(), z.null()])
+  .transform((value) => value ?? '');
+
 const employeeADRecordSchema = z.object({
-  cn: z.string(),
-  distinguishedName: z.string(),
-  sAMAccountName: z.string(),
-  title: z.string().optional().default(''),
-  department: z.string().optional().default(''),
-  company: z.string().optional().default(''),
+  cn: nullableAdString,
+  distinguishedName: nullableAdString,
+  sAMAccountName: nullableAdString,
+  title: nullableAdString,
+  department: nullableAdString,
+  company: nullableAdString,
 });
 export const employeeADResponseSchema = z.object({
   searchUser: z.array(employeeADRecordSchema),
+});
+
+export const searchEmployeeAdSchema = z.object({
+  query: z
+    .string()
+    .trim()
+    .min(2, 'Введите минимум 2 символа')
+    .max(120, 'Запрос не должен превышать 120 символов'),
 });

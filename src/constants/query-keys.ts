@@ -15,6 +15,7 @@ export const queryKeys = {
     list: () => ['employees', 'list'] as const,
     page: () => ['employees', 'page'] as const,
     detail: (id: string) => ['employees', 'detail', id] as const,
+    activity: (id: string) => ['employees', 'activity', id] as const,
   },
   notifications: {
     all: ['notifications'] as const,

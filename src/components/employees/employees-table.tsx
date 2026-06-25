@@ -1,94 +1,39 @@
 'use client';
 
-import { ConfigProvider, Popconfirm, Table, Tag, Tooltip } from 'antd';
+import { Popconfirm, Table, Tooltip } from 'antd';
 import type { TableProps } from 'antd';
 import { Eye, Pencil, Trash2 } from 'lucide-react';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 
+import { AppDataTableProvider, AppDataTableShell } from '@/components/ui/app-data-table';
+import { DataTableAction } from '@/components/ui/data-table-action';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { useViewportTableMetrics } from '@/hooks/use-viewport-table-metrics';
 import {
   countActiveCertificates,
   type EmployeeListItem,
 } from '@/lib/employee-table-utils';
+import { APP_TABLE_LOCALE, formatTableTotal } from '@/lib/ant-table-config';
 import { cn } from '@/lib/utils';
 
 type EmployeesTableProps = {
   data: EmployeeListItem[];
   loading?: boolean;
   deleting?: boolean;
+  selectedRowKeys?: string[];
+  onSelectionChange?: (keys: string[]) => void;
   onView: (id: string) => void;
   onEdit: (employee: EmployeeListItem) => void;
   onDelete: (id: string) => void;
   className?: string;
 };
 
-const PAGE_SIZE_MIN = 5;
-const PAGE_SIZE_MAX = 50;
-const TABLE_HEAD_HEIGHT = 48;
-const PAGINATION_HEIGHT = 56;
-const ROW_HEIGHT = 48;
-const TABLE_WRAPPER_PADDING = 16;
-/** Запас снизу: отступ PageShell, рамка карточки, зазор до края окна */
-const VIEWPORT_BOTTOM_GAP = 56;
-const ROW_SAFETY_MARGIN = 1;
-
-function useViewportTableMetrics(dataLength: number) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [pageSize, setPageSize] = useState(10);
-  const [scrollY, setScrollY] = useState(ROW_HEIGHT * PAGE_SIZE_MIN);
-
-  useLayoutEffect(() => {
-    const update = () => {
-      const el = containerRef.current;
-      if (!el) return;
-
-      const top = el.getBoundingClientRect().top;
-      const available = window.innerHeight - top - VIEWPORT_BOTTOM_GAP;
-      const paginationReserve =
-        dataLength > PAGE_SIZE_MIN ? PAGINATION_HEIGHT : 0;
-      const bodySpace =
-        available -
-        TABLE_HEAD_HEIGHT -
-        TABLE_WRAPPER_PADDING -
-        paginationReserve;
-
-      const rows = Math.floor(bodySpace / ROW_HEIGHT) - ROW_SAFETY_MARGIN;
-      const nextPageSize = Math.max(
-        PAGE_SIZE_MIN,
-        Math.min(rows || PAGE_SIZE_MIN, PAGE_SIZE_MAX),
-      );
-
-      const visibleRows = Math.min(dataLength || nextPageSize, nextPageSize);
-      const bodyHeight = Math.max(
-        ROW_HEIGHT * PAGE_SIZE_MIN,
-        visibleRows * ROW_HEIGHT,
-      );
-
-      setPageSize(nextPageSize);
-      setScrollY(Math.min(bodySpace, bodyHeight));
-    };
-
-    update();
-
-    const observer = new ResizeObserver(update);
-    observer.observe(document.documentElement);
-    if (containerRef.current) {
-      observer.observe(containerRef.current);
-    }
-    window.addEventListener('resize', update);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', update);
-    };
-  }, [dataLength]);
-
-  return { containerRef, pageSize, scrollY };
-}
-
 export function EmployeesTable({
   data,
   loading = false,
   deleting = false,
+  selectedRowKeys = [],
+  onSelectionChange,
   onView,
   onEdit,
   onDelete,
@@ -121,12 +66,15 @@ export function EmployeesTable({
         key: 'email',
         ellipsis: true,
         width: 200,
+        render: (value: string) => (
+          <span className="text-muted-foreground">{value}</span>
+        ),
       },
       {
         title: 'Логин AD',
         dataIndex: 'adUsername',
         key: 'adUsername',
-        width: 140,
+        width: 130,
         ellipsis: true,
         render: (value: string | null) => value ?? '—',
       },
@@ -143,16 +91,16 @@ export function EmployeesTable({
       {
         title: 'Сертификаты',
         key: 'certificates',
-        width: 130,
+        width: 120,
         align: 'center',
         sorter: (a, b) => a.certificates.length - b.certificates.length,
         render: (_value, record) => {
           const active = countActiveCertificates(record.certificates);
           return (
             <Tooltip title={`Активных: ${active}`}>
-              <Tag color={record.certificates.length > 0 ? 'gold' : 'default'}>
+              <StatusBadge tone={record.certificates.length > 0 ? 'accent' : 'neutral'}>
                 {record.certificates.length}
-              </Tag>
+              </StatusBadge>
             </Tooltip>
           );
         },
@@ -161,45 +109,36 @@ export function EmployeesTable({
         title: 'Статус',
         dataIndex: 'isActive',
         key: 'isActive',
-        width: 120,
+        width: 110,
         filters: [
           { text: 'Активен', value: true },
           { text: 'Неактивен', value: false },
         ],
         onFilter: (value, record) => record.isActive === value,
         render: (isActive: boolean) => (
-          <Tag color={isActive ? 'green' : 'default'}>
+          <StatusBadge tone={isActive ? 'success' : 'neutral'}>
             {isActive ? 'Активен' : 'Неактивен'}
-          </Tag>
+          </StatusBadge>
         ),
       },
       {
         title: '',
         key: 'actions',
-        width: 120,
+        width: 112,
         fixed: 'right',
+        align: 'center',
         render: (_value, record) => (
-          <div className="flex items-center justify-center gap-1">
-            <Tooltip title="Просмотр">
-              <button
-                type="button"
-                aria-label="Просмотр"
-                className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => onView(record.id)}
-              >
-                <Eye className="size-4" />
-              </button>
-            </Tooltip>
-            <Tooltip title="Редактировать">
-              <button
-                type="button"
-                aria-label="Редактировать"
-                className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => onEdit(record)}
-              >
-                <Pencil className="size-4" />
-              </button>
-            </Tooltip>
+          <div className="flex items-center justify-center gap-0.5">
+            <DataTableAction
+              icon={Eye}
+              label="Просмотр"
+              onClick={() => onView(record.id)}
+            />
+            <DataTableAction
+              icon={Pencil}
+              label="Редактировать"
+              onClick={() => onEdit(record)}
+            />
             <Popconfirm
               title="Удалить сотрудника?"
               description={
@@ -214,16 +153,12 @@ export function EmployeesTable({
               disabled={deleting}
             >
               <span className="inline-flex">
-                <Tooltip title="Удалить">
-                  <button
-                    type="button"
-                    aria-label="Удалить"
-                    disabled={deleting}
-                    className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </Tooltip>
+                <DataTableAction
+                  icon={Trash2}
+                  label="Удалить"
+                  variant="danger"
+                  disabled={deleting}
+                />
               </span>
             </Popconfirm>
           </div>
@@ -234,33 +169,36 @@ export function EmployeesTable({
   );
 
   return (
-    <ConfigProvider
-      theme={{
-        token: {
-          colorPrimary: '#b45309',
-          borderRadius: 8,
-        },
-      }}
-    >
-      <div ref={containerRef} className={cn('min-h-0 overflow-hidden', className)}>
+    <AppDataTableProvider>
+      <AppDataTableShell containerRef={containerRef} className={cn('h-full', className)}>
         <Table<EmployeeListItem>
           size="small"
           rowKey="id"
           loading={loading}
           dataSource={data}
           columns={columns}
+          rowSelection={
+            onSelectionChange
+              ? {
+                  selectedRowKeys,
+                  onChange: (keys) => onSelectionChange(keys as string[]),
+                }
+              : undefined
+          }
           scroll={{ x: 960, y: scrollY }}
+          showSorterTooltip={{ target: 'sorter-icon' }}
+          locale={APP_TABLE_LOCALE}
           pagination={
             showPagination
               ? {
                   pageSize,
                   showSizeChanger: false,
-                  showTotal: (total) => `Всего: ${total}`,
+                  showTotal: formatTableTotal,
                 }
               : false
           }
         />
-      </div>
-    </ConfigProvider>
+      </AppDataTableShell>
+    </AppDataTableProvider>
   );
 }

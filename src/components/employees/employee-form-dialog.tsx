@@ -2,13 +2,13 @@
 
 import { ConfigProvider, Form, Input, Switch } from 'antd';
 import { Loader2, UserRound } from 'lucide-react';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
+import { EmployeeAdSearchPanel } from '@/components/employees/employee-ad-search-panel';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -16,6 +16,7 @@ import {
 import type { EmployeeListItem } from '@/lib/employee-table-utils';
 import { showActionError, showActionSuccess } from '@/lib/toast-messages';
 import { cn } from '@/lib/utils';
+import type { EmployeeADSearchItem } from '@/server/actions/employee/search-employee-ad-action';
 
 type EmployeeFormValues = {
   fullName: string;
@@ -35,6 +36,22 @@ type EmployeeFormDialogProps = {
   submitting?: boolean;
 };
 
+const formTheme = {
+  token: {
+    colorPrimary: '#b45309',
+    borderRadius: 8,
+    controlHeight: 36,
+    fontSize: 13,
+  },
+  components: {
+    Form: {
+      itemMarginBottom: 12,
+      verticalLabelPadding: '0 0 4px',
+      labelFontSize: 12,
+    },
+  },
+};
+
 export function EmployeeFormDialog({
   open,
   onOpenChange,
@@ -44,9 +61,13 @@ export function EmployeeFormDialog({
   submitting = false,
 }: EmployeeFormDialogProps) {
   const [form] = Form.useForm<EmployeeFormValues>();
+  const [adSelectedUsername, setAdSelectedUsername] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setAdSelectedUsername(null);
+      return;
+    }
 
     if (mode === 'edit' && employee) {
       form.setFieldsValue({
@@ -68,7 +89,22 @@ export function EmployeeFormDialog({
       position: '',
       isActive: true,
     });
+    setAdSelectedUsername(null);
   }, [open, mode, employee, form]);
+
+  const handleAdSelect = useCallback(
+    (item: EmployeeADSearchItem) => {
+      form.setFieldsValue({
+        fullName: item.fullName,
+        email: item.email,
+        adUsername: item.adUsername,
+        department: item.department || '',
+        position: item.position || '',
+      });
+      setAdSelectedUsername(item.adUsername);
+    },
+    [form],
+  );
 
   const handleFinish = async (values: EmployeeFormValues) => {
     try {
@@ -88,136 +124,119 @@ export function EmployeeFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[520px]">
-        <div className="border-b border-border/70 bg-accent/20 px-6 pb-5 pt-6">
-          <DialogHeader className="gap-3 pr-8 text-left">
-            <div className="flex items-start gap-3">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-700">
-                <UserRound className="size-5" />
+      <DialogContent className="flex max-h-[88vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[460px]">
+        <div className="shrink-0 border-b border-border/60 px-5 py-4">
+          <DialogHeader className="gap-0 pr-7 text-left">
+            <div className="flex items-center gap-2.5">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-amber-200/80 bg-amber-50 text-amber-700">
+                <UserRound className="size-4" />
               </div>
-              <div className="min-w-0 space-y-1.5">
-                <DialogTitle className="text-lg leading-snug">
-                  {mode === 'create' ? 'Новый сотрудник' : 'Редактирование сотрудника'}
-                </DialogTitle>
-                <DialogDescription className="text-sm leading-relaxed">
-                  {mode === 'create'
-                    ? 'Добавьте сотрудника вручную. При загрузке сертификата запись также может создаваться автоматически из AD.'
-                    : 'Измените контактные данные или статус активности.'}
-                </DialogDescription>
-              </div>
+              <DialogTitle className="text-base font-semibold leading-tight">
+                {mode === 'create' ? 'Новый сотрудник' : 'Редактирование'}
+              </DialogTitle>
             </div>
           </DialogHeader>
         </div>
 
-        <ConfigProvider
-          theme={{
-            token: {
-              colorPrimary: '#b45309',
-              borderRadius: 10,
-              controlHeight: 44,
-            },
-            components: {
-              Form: {
-                itemMarginBottom: 20,
-                verticalLabelPadding: '0 0 6px',
-              },
-            },
-          }}
-        >
-          <Form
-            form={form}
-            layout="vertical"
-            className="px-6 py-6"
-            onFinish={handleFinish}
-            requiredMark={false}
-          >
-            <div className="rounded-xl border border-border/70 bg-background/80 p-4 sm:p-5">
-              <p className="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Основные данные
-              </p>
+        <ConfigProvider theme={formTheme}>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <Form
+              form={form}
+              layout="vertical"
+              size="middle"
+              className="space-y-4 px-5 py-4"
+              onFinish={handleFinish}
+              requiredMark={false}
+            >
+              {mode === 'create' && (
+                <EmployeeAdSearchPanel
+                  key={open ? 'ad-search-open' : 'ad-search-closed'}
+                  onSelect={handleAdSelect}
+                  disabled={submitting}
+                  selectedAdUsername={adSelectedUsername}
+                />
+              )}
 
-              <Form.Item
-                name="fullName"
-                label="ФИО"
-                rules={[{ required: true, message: 'Укажите ФИО' }]}
-              >
-                <Input placeholder="Иванов Иван Иванович" />
-              </Form.Item>
-
-              <Form.Item
-                name="email"
-                label="Email"
-                rules={[{ required: true, message: 'Укажите email' }]}
-              >
-                <Input placeholder="ivanov@company.local" />
-              </Form.Item>
-
-              <Form.Item
-                name="adUsername"
-                label="Логин AD"
-                rules={[{ required: true, message: 'Укажите логин' }]}
-                className="!mb-0"
-              >
-                <Input placeholder="ivanov.ii" />
-              </Form.Item>
-            </div>
-
-            <div className="mt-5 rounded-xl border border-border/70 bg-background/80 p-4 sm:p-5">
-              <p className="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Организация
-              </p>
-
-              <div className="grid gap-x-4 sm:grid-cols-2">
-                <Form.Item name="department" label="Отдел">
-                  <Input placeholder="ИТ-отдел" />
+              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3.5">
+                <Form.Item
+                  name="fullName"
+                  label="ФИО"
+                  rules={[{ required: true, message: 'Укажите ФИО' }]}
+                  className="!mb-0"
+                >
+                  <Input placeholder="Иванов Иван Иванович" />
                 </Form.Item>
 
-                <Form.Item name="position" label="Должность" className="!mb-0 sm:!mb-0">
-                  <Input placeholder="Инженер" />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Form.Item
+                    name="email"
+                    label="Email"
+                    rules={[{ required: true, message: 'Укажите email' }]}
+                    className="!mb-0"
+                  >
+                    <Input placeholder="ivanov@company.local" />
+                  </Form.Item>
+
+                  <Form.Item
+                    name="adUsername"
+                    label="Логин AD"
+                    rules={[{ required: true, message: 'Укажите логин' }]}
+                    className="!mb-0"
+                  >
+                    <Input placeholder="ivanov.ii" />
+                  </Form.Item>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Form.Item name="department" label="Отдел" className="!mb-0">
+                    <Input placeholder="ИТ-отдел" />
+                  </Form.Item>
+
+                  <Form.Item name="position" label="Должность" className="!mb-0">
+                    <Input placeholder="Инженер" />
+                  </Form.Item>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-border/60 px-3.5 py-2.5">
+                <div className="min-w-0 pr-3">
+                  <p className="text-sm font-medium text-foreground">Активен</p>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Скрыт при загрузке сертификатов, если выключен
+                  </p>
+                </div>
+                <Form.Item name="isActive" valuePropName="checked" className="!mb-0">
+                  <Switch size="small" />
                 </Form.Item>
               </div>
-            </div>
-
-            <div className="mt-5 flex items-center justify-between rounded-xl border border-border/70 bg-muted/30 px-4 py-3.5 sm:px-5">
-              <div>
-                <p className="text-sm font-medium text-foreground">Активен</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Неактивные сотрудники скрыты из списка при загрузке сертификатов
-                </p>
-              </div>
-              <Form.Item
-                name="isActive"
-                valuePropName="checked"
-                className="!mb-0"
-              >
-                <Switch />
-              </Form.Item>
-            </div>
-          </Form>
+            </Form>
+          </div>
         </ConfigProvider>
 
         <DialogFooter
           className={cn(
-            '!m-0 gap-3 border-t border-border/70 bg-muted/30 px-6 py-4',
-            'flex-col-reverse sm:flex-row sm:justify-end',
+            'shrink-0 !m-0 gap-2 border-t border-border/60 bg-muted/20 px-5 py-3',
+            'flex-row justify-end',
           )}
         >
           <Button
             type="button"
             variant="outline"
+            size="sm"
             onClick={() => onOpenChange(false)}
             disabled={submitting}
-            className="w-full sm:w-auto"
+            className="h-8"
           >
             Отмена
           </Button>
           <Button
             type="button"
+            size="sm"
             disabled={submitting}
             onClick={() => form.submit()}
-            className="w-full sm:w-auto"
+            className="h-8 min-w-[88px]"
           >
-            {submitting && <Loader2 className="size-4 animate-spin" />}
+            {submitting && <Loader2 className="size-3.5 animate-spin" />}
             {mode === 'create' ? 'Добавить' : 'Сохранить'}
           </Button>
         </DialogFooter>

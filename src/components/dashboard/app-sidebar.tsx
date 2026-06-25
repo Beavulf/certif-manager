@@ -1,8 +1,7 @@
 import Link from 'next/link';
-import { ShieldCheck } from 'lucide-react';
+import { LogOut, ShieldCheck } from 'lucide-react';
 
 import { NavLinks } from '@/components/dashboard/nav-links';
-import { LogOut } from 'lucide-react';
 import { logout } from '@/server/services/graphql-service';
 
 type AppSidebarProps = {
@@ -21,10 +20,10 @@ export function AppSidebar({ username }: AppSidebarProps) {
 
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold tracking-wide text-foreground">
-                Certif Manager
+                Менеджер сертификатов
               </p>
               <p className="text-xs text-muted-foreground">
-                Certificate workspace
+                Рабочая область
               </p>
             </div>
           </div>
@@ -42,8 +41,8 @@ export function AppSidebar({ username }: AppSidebarProps) {
       </div>
 
       <div className="border-t border-border/70 p-4">
-        <div className="rounded-2xl border border-border/70 bg-background px-4 py-3 shadow-sm flex items-center justify-between">
-          <div>
+        <div className="rounded-2xl border border-border/70 bg-background px-4 py-3 shadow-sm flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <p className="text-xs text-muted-foreground">Вы вошли как</p>
             <p className="mt-1 truncate text-sm font-medium text-foreground">
               {username}
@@ -51,7 +50,7 @@ export function AppSidebar({ username }: AppSidebarProps) {
           </div>
           <form 
             action={logout} 
-            className="ml-3"
+            className="ml-3 shrink-0"
             style={{ margin: 0, display: 'flex' }}
           >
             <button

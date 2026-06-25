@@ -34,6 +34,7 @@ const FIELD_LABELS: Record<string, string> = {
   fullName: 'ФИО',
   email: 'Email',
   adUsername: 'Логин AD',
+  query: 'Поисковый запрос',
 };
 
 function isFailedResult(error: unknown): error is SafeResult {

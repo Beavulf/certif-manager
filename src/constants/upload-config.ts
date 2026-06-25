@@ -12,3 +12,16 @@ export const UPLOAD_FILE_CONFIG = {
   ARR_CERT_TYPE:Object.values(CERT_FILE_TYPES),
   ARR_DOC_TYPE:Object.values(DOC_FILE_TYPES),
 }
+
+/** HTML accept: comma-separated extensions with lower/upper case for Windows file dialogs. */
+export function buildFileAcceptAttribute(extensions: string[]): string {
+  const acceptValues = new Set<string>();
+
+  for (const ext of extensions) {
+    const withDot = ext.startsWith('.') ? ext : `.${ext}`;
+    acceptValues.add(withDot.toLowerCase());
+    acceptValues.add(withDot.toUpperCase());
+  }
+
+  return [...acceptValues].join(',');
+}

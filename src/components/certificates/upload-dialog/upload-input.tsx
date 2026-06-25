@@ -1,6 +1,7 @@
 'use client'
 
-import { cn } from "@/lib/utils"
+import { buildFileAcceptAttribute } from '@/constants/upload-config';
+import { cn } from '@/lib/utils';
 import { Upload } from "lucide-react";
 import { useCallback, useRef, useState } from "react"
 
@@ -80,7 +81,7 @@ export function UploadInput({
       <input
         ref={inputRef}
         type="file"
-        accept={acceptExtensions.join(',')}
+        accept={buildFileAcceptAttribute(acceptExtensions)}
         multiple
         className="sr-only"
         onChange={(e) => {

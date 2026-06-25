@@ -141,6 +141,7 @@ export function useGetCertificatesAll(
         orderBy: { uploadedAt: 'desc' },
         include: {
           employee: { select: { id: true, fullName: true } },
+          _count: { select: { documents: true } },
         },
       });
       if (!result.success) { throw result; }
