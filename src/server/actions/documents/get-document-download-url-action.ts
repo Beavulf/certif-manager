@@ -2,8 +2,8 @@
 
 import { z } from 'zod';
 
+import { buildDocumentDownloadPath } from '@/lib/download-paths';
 import { requireAuth } from '@/lib/session-helper';
-import { getPresignedUrl } from '@/minio/minio';
 import { mapErrorToSafeResult } from '@/server/errors/map-error';
 import { auditlogService } from '@/server/services/auditlog-service';
 import { documentService } from '@/server/services/document-service';
@@ -35,7 +35,7 @@ export async function getDocumentDownloadUrlAction(
 
   try {
     const document = await documentService.findByIdOrThrow(parsed.data.documentId);
-    const url = await getPresignedUrl(document.fileKey);
+    const url = buildDocumentDownloadPath(document.id);
 
     await auditlogService.log({
       action: 'viewCert',

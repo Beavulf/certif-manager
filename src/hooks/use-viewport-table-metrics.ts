@@ -27,7 +27,6 @@ export function useViewportTableMetrics(
   } = options;
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const [pageSize, setPageSize] = useState(10);
   const [scrollY, setScrollY] = useState(
     TABLE_METRICS.ROW_HEIGHT * TABLE_METRICS.PAGE_SIZE_MIN,
   );
@@ -39,24 +38,13 @@ export function useViewportTableMetrics(
 
       const available = getAvailableBodyHeight(el, bottomGap);
       const paginationReserve =
-        dataLength > TABLE_METRICS.PAGE_SIZE_MIN
-          ? TABLE_METRICS.PAGINATION_HEIGHT
-          : 0;
+        dataLength > 0 ? TABLE_METRICS.PAGINATION_HEIGHT : 0;
       const bodySpace =
         available -
         TABLE_METRICS.TABLE_HEAD_HEIGHT -
         TABLE_METRICS.TABLE_WRAPPER_PADDING -
         paginationReserve;
 
-      const rows =
-        Math.floor(bodySpace / TABLE_METRICS.ROW_HEIGHT) -
-        TABLE_METRICS.ROW_SAFETY_MARGIN;
-      const nextPageSize = Math.max(
-        TABLE_METRICS.PAGE_SIZE_MIN,
-        Math.min(rows || TABLE_METRICS.PAGE_SIZE_MIN, TABLE_METRICS.PAGE_SIZE_MAX),
-      );
-
-      setPageSize(nextPageSize);
       if (withScrollY) {
         setScrollY(
           Math.max(TABLE_METRICS.ROW_HEIGHT * TABLE_METRICS.PAGE_SIZE_MIN, bodySpace),
@@ -88,5 +76,5 @@ export function useViewportTableMetrics(
     };
   }, [bottomGap, dataLength, withScrollY]);
 
-  return { containerRef, pageSize, scrollY };
+  return { containerRef, scrollY };
 }

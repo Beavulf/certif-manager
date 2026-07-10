@@ -6,7 +6,7 @@ import { getNotificationLogsPageAction } from '@/server/actions/notifications/ge
 export default async function NotificationsRoutePage() {
   const result = await getNotificationLogsPageAction({
     page: 1,
-    pageSize: 25,
+    pageSize: 10,
     status: 'all',
     period: 'all',
   });

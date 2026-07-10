@@ -1,3 +1,5 @@
+import { Readable } from 'node:stream'
+
 import * as Minio from 'minio'
 
 
@@ -49,14 +51,27 @@ export async function fileExists(key: string): Promise<boolean> {
     throw err
   }
 }
-  // Получить временную ссылку на скачивание (10 минут)
-  export async function getPresignedUrl(key: string): Promise<string> {
-    return minioClient.presignedGetObject(BUCKET, key, 60 * 10)
+export async function getObjectStream(key: string): Promise<Readable> {
+  return minioClient.getObject(BUCKET, key)
+}
+
+export async function getObjectBuffer(key: string): Promise<Buffer> {
+  const stream = await getObjectStream(key)
+  const chunks: Buffer[] = []
+
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
   }
-  
-  // Удалить файл
-  export async function deleteFile(key: string): Promise<void> {
-    await minioClient.removeObject(BUCKET, key)
-  }
-  
+
+  return Buffer.concat(chunks)
+}
+
+export async function getObjectStat(key: string) {
+  return minioClient.statObject(BUCKET, key)
+}
+
+export async function deleteFile(key: string): Promise<void> {
+  await minioClient.removeObject(BUCKET, key)
+}
+
 export default minioClient

@@ -17,6 +17,7 @@ import { updateCertificateNotesAction } from '@/server/actions/certificate/updat
 import { revokeCertificateAction } from '@/server/actions/certificate/revoke-certificate-action';
 import { getCertificateDownloadUrlAction } from '@/server/actions/certificate/get-certificate-download-url-action';
 import { bulkDeleteCertificatesAction } from '@/server/actions/certificate/bulk-delete-certificates-action';
+import { bulkAutoAssignCertificatesAction } from '@/server/actions/certificate/bulk-auto-assign-certificates-action';
 
 /**
  * Хук для загрузки сертификата сотрудника.
@@ -224,6 +225,22 @@ export function useBulkDeleteCertificates() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.certificates.all });
+    },
+  });
+}
+
+export function useBulkAutoAssignCertificates() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const result = await bulkAutoAssignCertificatesAction();
+      if (!result.success) throw result;
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.certificates.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
     },
   });
 }

@@ -95,7 +95,10 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
         return;
       }
 
-      await mutateAsync(payload);
+      const saved = await mutateAsync(payload);
+      const syncKey = `${saved.id}:${new Date(saved.updatedAt).getTime()}`;
+      syncedKeyRef.current = syncKey;
+      form.setFieldsValue(buildFormValues(saved));
     } catch (error) {
       const err = error as { errorFields?: unknown };
       if (err?.errorFields) {

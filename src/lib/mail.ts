@@ -141,16 +141,22 @@ function createTransporterFromSettings(settings: NotificationSettings) {
     throw new SmtpError('SMTP не настроен. Заполните настройки уведомлений.');
   }
 
+  const port = Number(settings.smtpPort ?? 25);
+  const allowInsecureTls = process.env.SMTP_TLS_REJECT_UNAUTHORIZED === 'false';
+
   return nodemailer.createTransport({
     host: settings.smtpHost,
-    port: Number(settings.smtpPort ?? 25),
-    secure: false,
+    port,
+    secure: port === 465,
     auth: settings.smtpUser
       ? {
           user: settings.smtpUser,
           pass: settings.smtpPassword ?? '',
         }
       : undefined,
+    ...(allowInsecureTls
+      ? { tls: { rejectUnauthorized: false } }
+      : {}),
   });
 }
 
@@ -204,17 +210,7 @@ export async function sendExpiryEmail(
     };
   }
 
-  const transporter = nodemailer.createTransport({
-    host: config.smtpHost,
-    port: Number(config.smtpPort ?? 25),
-    secure: false, // true для порта 465
-    auth: config.smtpUser
-      ? {
-          user: config.smtpUser,
-          pass: config.smtpPassword || "",
-        }
-      : undefined,
-  })
+  const transporter = createTransporterFromSettings(config);
 
   try {
     await transporter.sendMail({

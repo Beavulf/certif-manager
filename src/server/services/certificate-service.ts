@@ -6,12 +6,39 @@ import { employeeService } from "./employee-service";
 import { createDocumentRepository, documentRepository } from "../repositories/document-repository";
 import { generateCertKey } from "@/minio/file-key";
 import { parseCert } from "@/minio/parse-cert";
-import { deleteFile, fileExists, uploadFile } from "@/minio/minio";
+import { deleteFile, fileExists, getObjectBuffer, uploadFile } from "@/minio/minio";
 import prisma from "@/lib/prisma";
 import { getEmployeeInfoFromAD } from "./graphql-service";
 import { getAdEmailDomain } from '@/lib/app-settings-helpers';
+import { personNamesMatch } from '@/lib/person-name-utils';
 import { appSettingsService } from '@/server/services/app-settings-service';
 import type { SafeResult } from "@/types/safe-result-types";
+import type {
+  BulkAutoAssignReport,
+  BulkAutoAssignSuccess,
+} from '@/types/certificate-auto-assign-types';
+
+type ResolveEmployeeResult =
+  | {
+      success: true;
+      employeeId: string;
+      employeeName: string;
+      source: 'db' | 'ad_created';
+    }
+  | {
+      success: false;
+      code: string;
+      error: string;
+    };
+
+const ISSUE_LABELS: Record<string, string> = {
+  INVALID_SUBJECT: 'Некорректное ФИО в сертификате',
+  MULTIPLE_IN_DB: 'Несколько сотрудников в базе',
+  MULTIPLE_IN_AD: 'Несколько сотрудников в AD',
+  NOT_FOUND_IN_AD: 'Не найден в AD',
+  EMAIL_DOMAIN_MISSING: 'Не настроен домен email',
+  ASSIGN_FAILED: 'Ошибка привязки',
+};
 
 export const certificateService = {
 
@@ -52,7 +79,7 @@ export const certificateService = {
       throw new BadRequestError("Не удалось определить ФИО пользователя в сертификате");
     }
 
-    if (employee && parsedCert.subjectCN !== employee.fullName) {
+    if (employee && !personNamesMatch(parsedCert.subjectCN, employee.fullName)) {
       throw new BadRequestError("ФИО пользователя в сертификате не совпадает с ФИО пользователя в системе");
     }
 
@@ -72,6 +99,7 @@ export const certificateService = {
         const data: Prisma.CertificateCreateInput = {
           serialNumber: parsedCert.serialNumber,
           thumbprint: parsedCert.thumbprint,
+          subjectKeyId: parsedCert.subjectKeyId,
           subjectCN: parsedCert.subjectCN,
           subjectEmail: employee && employee.email,
           validFrom: parsedCert.validFrom,
@@ -137,14 +165,7 @@ export const certificateService = {
       }
     }
 
-    const employees = await employeeService.findMany({
-      where : {
-        fullName: {
-          equals: parsedCert.subjectCN.trim(),
-          mode: 'insensitive',
-        },
-      }
-    });
+    const employees = await employeeService.findByMatchingFullName(parsedCert.subjectCN);
 
     if (employees.length > 1) {
       return {
@@ -262,7 +283,37 @@ export const certificateService = {
     if (!certificate) {
       throw new NotFoundError("Сертификат не найден");
     }
-    return certificate;
+
+    const enriched = await this.ensureSubjectKeyId(certificate);
+    return { ...certificate, subjectKeyId: enriched.subjectKeyId };
+  },
+
+  async ensureSubjectKeyId(certificate: Certificate): Promise<Certificate> {
+    if (certificate.subjectKeyId) {
+      return certificate;
+    }
+
+    try {
+      if (!(await fileExists(certificate.fileKey))) {
+        return certificate;
+      }
+
+      const buffer = await getObjectBuffer(certificate.fileKey);
+      const parsed = parseCert(
+        buffer,
+        `certificate.${certificate.certType}`,
+      );
+
+      if (!parsed.subjectKeyId) {
+        return certificate;
+      }
+
+      return await certificateRepository.updateById(certificate.id, {
+        subjectKeyId: parsed.subjectKeyId,
+      });
+    } catch {
+      return certificate;
+    }
   },
 
   async findByIdOrThrow(id: string):Promise<Certificate> {
@@ -280,9 +331,7 @@ export const certificateService = {
     }
     const employee = await employeeService.findByIdOrThrow(employeeId);
 
-    if (
-      certificate.subjectCN.trim().toLowerCase() !== employee.fullName.trim().toLowerCase()
-    ) {
+    if (!personNamesMatch(certificate.subjectCN, employee.fullName)) {
       throw new BadRequestError(
         "ФИО в сертификате не совпадает с ФИО сотрудника"
       );
@@ -343,5 +392,166 @@ export const certificateService = {
     return await certificateRepository.updateById(id, {
       status: 'revoked',
     });
+  },
+
+  async resolveEmployeeForCertificateSubject(
+    subjectCN: string,
+  ): Promise<ResolveEmployeeResult> {
+    const trimmed = subjectCN.trim();
+    if (!trimmed || trimmed === 'Unknown') {
+      return {
+        success: false,
+        code: 'INVALID_SUBJECT',
+        error: 'Не удалось определить ФИО в сертификате',
+      };
+    }
+
+    const employees = await employeeService.findByMatchingFullName(trimmed);
+    if (employees.length > 1) {
+      return {
+        success: false,
+        code: 'MULTIPLE_IN_DB',
+        error: 'Найдено несколько сотрудников с таким ФИО в базе',
+      };
+    }
+    if (employees.length === 1) {
+      return {
+        success: true,
+        employeeId: employees[0].id,
+        employeeName: employees[0].fullName,
+        source: 'db',
+      };
+    }
+
+    const employeeInfo = await getEmployeeInfoFromAD(trimmed);
+    if (!employeeInfo.success || !employeeInfo.data?.length) {
+      return {
+        success: false,
+        code: 'NOT_FOUND_IN_AD',
+        error: employeeInfo.error ?? 'Сотрудник не найден в AD',
+      };
+    }
+    if (employeeInfo.data.length > 1) {
+      return {
+        success: false,
+        code: 'MULTIPLE_IN_AD',
+        error: 'Найдено несколько сотрудников с таким ФИО в AD',
+      };
+    }
+
+    const { cn, sAMAccountName, title, department } = employeeInfo.data[0];
+    const appSettings = await appSettingsService.getOrCreate();
+    const emailDomain = getAdEmailDomain(appSettings);
+    if (!emailDomain) {
+      return {
+        success: false,
+        code: 'EMAIL_DOMAIN_MISSING',
+        error:
+          'Домен email не настроен. Укажите AD Email Domain в настройках или переменной AD_EMAIL_DOMAIN',
+      };
+    }
+
+    const email = `${sAMAccountName}@${emailDomain}`;
+
+    try {
+      const newEmployee = await employeeService.create({
+        fullName: cn,
+        email,
+        adUsername: sAMAccountName,
+        position: title || undefined,
+        department: department || undefined,
+      });
+
+      return {
+        success: true,
+        employeeId: newEmployee.id,
+        employeeName: newEmployee.fullName,
+        source: 'ad_created',
+      };
+    } catch (error) {
+      if (error instanceof BadRequestError) {
+        const existing = await employeeService.findByAdUsername(sAMAccountName);
+        if (existing && personNamesMatch(existing.fullName, trimmed)) {
+          return {
+            success: true,
+            employeeId: existing.id,
+            employeeName: existing.fullName,
+            source: 'db',
+          };
+        }
+      }
+      throw error;
+    }
+  },
+
+  async bulkAutoAssignUnassignedCertificates(): Promise<BulkAutoAssignReport> {
+    const unassigned = await this.findMany({
+      where: {
+        employeeId: null,
+        status: { not: 'revoked' },
+      },
+      orderBy: { uploadedAt: 'asc' },
+    });
+
+    const report: BulkAutoAssignReport = {
+      unassignedTotal: unassigned.length,
+      assignedFromDb: 0,
+      createdAndAssigned: 0,
+      skippedCount: 0,
+      successes: [],
+      issues: [],
+    };
+
+    for (const cert of unassigned) {
+      const baseIssue = {
+        certificateId: cert.id,
+        subjectCN: cert.subjectCN,
+        serialNumber: cert.serialNumber,
+      };
+
+      try {
+        const resolved = await this.resolveEmployeeForCertificateSubject(
+          cert.subjectCN,
+        );
+
+        if (!resolved.success) {
+          report.skippedCount += 1;
+          report.issues.push({
+            ...baseIssue,
+            reason: ISSUE_LABELS[resolved.code] ?? resolved.code,
+            message: resolved.error,
+          });
+          continue;
+        }
+
+        await this.assignToEmployee(cert.id, resolved.employeeId);
+
+        const success: BulkAutoAssignSuccess = {
+          ...baseIssue,
+          employeeName: resolved.employeeName,
+          action:
+            resolved.source === 'ad_created'
+              ? 'created_and_assigned'
+              : 'assigned_from_db',
+        };
+        report.successes.push(success);
+
+        if (resolved.source === 'ad_created') {
+          report.createdAndAssigned += 1;
+        } else {
+          report.assignedFromDb += 1;
+        }
+      } catch (error) {
+        report.skippedCount += 1;
+        report.issues.push({
+          ...baseIssue,
+          reason: ISSUE_LABELS.ASSIGN_FAILED,
+          message:
+            error instanceof Error ? error.message : 'Неизвестная ошибка',
+        });
+      }
+    }
+
+    return report;
   },
 }

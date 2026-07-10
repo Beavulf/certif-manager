@@ -105,5 +105,5 @@ export const testSmtpSchema = z.object({
 
 export const auditLogsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(10).max(100).default(25),
+  pageSize: z.coerce.number().int().min(5).max(100_000).default(10),
 });

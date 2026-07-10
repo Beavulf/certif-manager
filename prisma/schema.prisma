@@ -72,6 +72,7 @@ model Certificate {
   employeeId    String?
   serialNumber  String     @unique
   thumbprint    String?    @unique // уникальный хэш сертификата
+  subjectKeyId  String?    // идентификатор ключа субъекта (SKI)
   subjectCN     String
   subjectEmail  String?
   issuer        String? // кто выдал

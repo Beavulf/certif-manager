@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getPresignedUrl } from '@/minio/minio'
-import { certificateService } from '@/server/services/certificate-service'
 import { mapErrorToResponse } from '@/server/errors/map-error';
 import { employeeService } from '@/server/services/employee-service';
 

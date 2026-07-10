@@ -3,6 +3,7 @@
 import { z } from 'zod';
 
 import { getAdEmailDomain } from '@/lib/app-settings-helpers';
+import { normalizePersonName } from '@/lib/person-name-utils';
 import { requireAuth } from '@/lib/session-helper';
 import { checkIdEmployeeSchema } from '@/schemas/employee-schema';
 import { mapErrorToSafeResult } from '@/server/errors/map-error';
@@ -128,10 +129,6 @@ const bulkAssignSchema = z.object({
   employeeIds: z.array(z.string().uuid()).min(1),
 });
 
-function normalizeName(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
 export async function bulkAssignCertificatesAction(
   employeeIds: string[],
 ): Promise<SafeResult<{ assignedCount: number; skippedCount: number }>> {
@@ -156,7 +153,7 @@ export async function bulkAssignCertificatesAction(
 
     const unassignedByName = new Map<string, typeof unassigned>();
     for (const cert of unassigned) {
-      const key = normalizeName(cert.subjectCN);
+      const key = normalizePersonName(cert.subjectCN);
       const bucket = unassignedByName.get(key) ?? [];
       bucket.push(cert);
       unassignedByName.set(key, bucket);
@@ -172,7 +169,7 @@ export async function bulkAssignCertificatesAction(
         continue;
       }
 
-      const certs = unassignedByName.get(normalizeName(employee.fullName));
+      const certs = unassignedByName.get(normalizePersonName(employee.fullName));
       if (!certs?.length) {
         skippedCount += 1;
         continue;
@@ -188,7 +185,7 @@ export async function bulkAssignCertificatesAction(
       assignedCount += 1;
 
       if (certs.length === 0) {
-        unassignedByName.delete(normalizeName(employee.fullName));
+        unassignedByName.delete(normalizePersonName(employee.fullName));
       }
     }
 

@@ -1,4 +1,7 @@
-import type { TableProps } from 'antd';
+import type { TablePaginationConfig, TableProps } from 'antd';
+
+export const APP_TABLE_PAGE_SIZES = [5, 10, 25, 50] as const;
+export const APP_TABLE_PAGE_SIZE_DEFAULT = 10;
 
 export const APP_TABLE_THEME = {
   token: {
@@ -47,4 +50,46 @@ export const TABLE_METRICS = {
 
 export function formatTableTotal(total: number): string {
   return `Всего: ${total}`;
+}
+
+export function buildPageSizeOptions(total: number): number[] {
+  const safeTotal = Math.max(total, 1);
+  const options = new Set<number>(APP_TABLE_PAGE_SIZES);
+  options.add(safeTotal);
+  return [...options].sort((a, b) => a - b);
+}
+
+export function formatPageSizeOption(size: number, total: number): string {
+  const safeTotal = Math.max(total, 1);
+  const isStandardSize = (APP_TABLE_PAGE_SIZES as readonly number[]).includes(size);
+  if (size === safeTotal && !isStandardSize) {
+    return 'Все';
+  }
+  return String(size);
+}
+
+export function buildTablePaginationConfig({
+  current,
+  pageSize,
+  total,
+  onChange,
+}: {
+  current: number;
+  pageSize: number;
+  total: number;
+  onChange: (page: number, pageSize: number) => void;
+}): TablePaginationConfig | false {
+  if (total === 0) return false;
+
+  return {
+    current,
+    pageSize,
+    total,
+    showSizeChanger: true,
+    pageSizeOptions: buildPageSizeOptions(total),
+    buildOptionText: (size: number) => formatPageSizeOption(size, total),
+    showTotal: formatTableTotal,
+    hideOnSinglePage: false,
+    onChange,
+  } as TablePaginationConfig;
 }

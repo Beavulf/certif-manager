@@ -9,11 +9,12 @@ import { AppDataTableProvider, AppDataTableShell } from '@/components/ui/app-dat
 import { DataTableAction } from '@/components/ui/data-table-action';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useViewportTableMetrics } from '@/hooks/use-viewport-table-metrics';
+import { useTablePagination } from '@/hooks/use-table-pagination';
 import {
   countActiveCertificates,
   type EmployeeListItem,
 } from '@/lib/employee-table-utils';
-import { APP_TABLE_LOCALE, formatTableTotal } from '@/lib/ant-table-config';
+import { APP_TABLE_LOCALE } from '@/lib/ant-table-config';
 import { cn } from '@/lib/utils';
 
 type EmployeesTableProps = {
@@ -39,8 +40,8 @@ export function EmployeesTable({
   onDelete,
   className,
 }: EmployeesTableProps) {
-  const { containerRef, pageSize, scrollY } = useViewportTableMetrics(data.length);
-  const showPagination = data.length > pageSize;
+  const { containerRef, scrollY } = useViewportTableMetrics(data.length);
+  const { pagination } = useTablePagination({ total: data.length });
 
   const columns = useMemo<TableProps<EmployeeListItem>['columns']>(
     () => [
@@ -188,15 +189,7 @@ export function EmployeesTable({
           scroll={{ x: 960, y: scrollY }}
           showSorterTooltip={{ target: 'sorter-icon' }}
           locale={APP_TABLE_LOCALE}
-          pagination={
-            showPagination
-              ? {
-                  pageSize,
-                  showSizeChanger: false,
-                  showTotal: formatTableTotal,
-                }
-              : false
-          }
+          pagination={pagination}
         />
       </AppDataTableShell>
     </AppDataTableProvider>

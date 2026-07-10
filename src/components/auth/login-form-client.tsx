@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showLoginError } from '@/lib/toast-messages';
@@ -12,7 +11,6 @@ import { AdminHoverCard } from './login-hover-client';
 const REMEMBERED_LOGIN_KEY = 'certif-manager:remembered-login';
 
 export function LoginFormClient() {
-  const router = useRouter();
   const [username, setUsername] = useState('');
   const [rememberLogin, setRememberLogin] = useState(false);
 
@@ -41,13 +39,10 @@ export function LoginFormClient() {
     const password = String(formData.get('password'));
 
     const token = await getAuthToken(login, password);
-    
+
     if (!token.success) {
       showLoginError(token);
-      return;
     }
-
-    router.push('/');
   };
 
   return (

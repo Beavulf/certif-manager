@@ -3,8 +3,8 @@
 import path from 'path';
 import { z } from 'zod';
 
+import { buildCertificateDownloadPath } from '@/lib/download-paths';
 import { requireAuth } from '@/lib/session-helper';
-import { getPresignedUrl } from '@/minio/minio';
 import { mapErrorToSafeResult } from '@/server/errors/map-error';
 import { auditlogService } from '@/server/services/auditlog-service';
 import { certificateService } from '@/server/services/certificate-service';
@@ -36,7 +36,7 @@ export async function getCertificateDownloadUrlAction(
 
   try {
     const certificate = await certificateService.findByIdOrThrow(parsed.data.certificateId);
-    const url = await getPresignedUrl(certificate.fileKey);
+    const url = buildCertificateDownloadPath(certificate.id);
     const ext = path.extname(certificate.fileKey) || `.${certificate.certType}`;
     const safeName = certificate.subjectCN.replace(/[<>:"/\\|?*]+/g, '_').trim();
     const fileName = `${safeName}${ext}`;

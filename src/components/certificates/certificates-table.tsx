@@ -9,6 +9,7 @@ import { AppDataTableProvider, AppDataTableShell } from '@/components/ui/app-dat
 import { DataTableAction } from '@/components/ui/data-table-action';
 import { CertificateNotesCell } from '@/components/certificates/certificate-notes-cell';
 import { useViewportTableMetrics } from '@/hooks/use-viewport-table-metrics';
+import { useTablePagination } from '@/hooks/use-table-pagination';
 import {
   daysUntilExpiry,
   getDaysLeftClass,
@@ -24,7 +25,7 @@ import {
   type CertificateGroupBy,
   type CertificateTableRow,
 } from '@/lib/certificate-table-utils';
-import { APP_TABLE_LOCALE, formatTableTotal } from '@/lib/ant-table-config';
+import { APP_TABLE_LOCALE } from '@/lib/ant-table-config';
 import type { CertificatesWithIncludes } from '@/types/certificate-types';
 import { cn } from '@/lib/utils';
 
@@ -69,8 +70,8 @@ export function CertificatesTable({
     [data, groupBy],
   );
 
-  const { containerRef, pageSize, scrollY } = useViewportTableMetrics(tableRows.length);
-  const showPagination = tableRows.length > pageSize;
+  const { containerRef, scrollY } = useViewportTableMetrics(tableRows.length);
+  const { pagination } = useTablePagination({ total: tableRows.length });
   const sortingEnabled = groupBy === 'none';
 
   const columns: TableProps<CertificateTableRow>['columns'] = [
@@ -256,15 +257,7 @@ export function CertificatesTable({
             preserveSelectedRowKeys: true,
             columnWidth: 44,
           }}
-          pagination={
-            showPagination
-              ? {
-                  pageSize,
-                  showSizeChanger: false,
-                  showTotal: formatTableTotal,
-                }
-              : false
-          }
+          pagination={pagination}
           onRow={(record) => {
             const urgency = getExpiryUrgency(record, expiryThresholds);
             return {

@@ -34,6 +34,7 @@ import { CertificateExportButton } from './certificate-export-button';
 import { CertificatePresetFilters } from './certificate-preset-filters';
 import { CertificatesStats } from './certificates-stats';
 import { CertificatesTable } from './certificates-table';
+import { BulkAutoAssignCertificatesButton } from './bulk-auto-assign-button';
 import { CertificatesTableHeader, GroupBySelect } from './certificates-toolbar';
 import { FilterSelect } from './filter-select';
 import { UploadDialog } from './upload-dialog/upload-dialog';
@@ -108,6 +109,12 @@ export function CertificatesPage({
   const stats = useMemo(
     () => computeCertificateStats(filteredData, expiryThresholds),
     [filteredData, expiryThresholds],
+  );
+
+  const unassignedCount = useMemo(
+    () =>
+      data.filter((cert) => !cert.employeeId && cert.status !== 'revoked').length,
+    [data],
   );
 
   const updatePreset = useCallback(
@@ -246,6 +253,10 @@ export function CertificatesPage({
               activePreset={activePreset}
               expiryThresholds={expiryThresholds}
               disabled={isPending}
+            />
+            <BulkAutoAssignCertificatesButton
+              unassignedCount={unassignedCount}
+              disabled={isPending || deleting}
             />
             <UploadDialog />
           </div>

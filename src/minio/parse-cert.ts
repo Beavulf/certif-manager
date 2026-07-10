@@ -12,7 +12,13 @@ export type ParsedCert = {
   validFrom: Date
   validTo: Date
   certType: 'cer' | 'p7b'
-  subjectKeyId: string | null 
+  subjectKeyId: string | null
+}
+
+/** Форматирует hex-строку SKI для отображения: пары байт через пробел. */
+export function formatSubjectKeyId(value: string): string {
+  const normalized = value.replace(/\s+/g, '').toUpperCase()
+  return normalized.replace(/(.{2})(?=.)/g, '$1 ').trim()
 }
 
 // ─── TLV парсер ───────────────────────────────────────────────

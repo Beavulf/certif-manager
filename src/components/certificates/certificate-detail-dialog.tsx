@@ -7,6 +7,7 @@ import {
   FileBadge2,
   Fingerprint,
   Hash,
+  KeyRound,
   Link2,
   Loader2,
   Mail,
@@ -49,6 +50,7 @@ import {
   STATUS_LABELS,
   DEFAULT_EXPIRY_THRESHOLDS,
 } from '@/lib/certificate-expiry';
+import { formatSubjectKeyId } from '@/minio/parse-cert';
 import { usePublicAppSettings } from '@/hooks/use-settings';
 import { showActionError, showActionSuccess, showValidationError } from '@/lib/toast-messages';
 
@@ -474,6 +476,15 @@ export function CertificateDetailDialog({
                     label="Отпечаток"
                     value={data.thumbprint}
                     copyValue={data.thumbprint}
+                    mono
+                  />
+                )}
+                {data.subjectKeyId && (
+                  <DetailRow
+                    icon={KeyRound}
+                    label="Идентификатор ключа субъекта"
+                    value={formatSubjectKeyId(data.subjectKeyId)}
+                    copyValue={data.subjectKeyId}
                     mono
                   />
                 )}

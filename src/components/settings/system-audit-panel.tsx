@@ -12,7 +12,7 @@ import { useState } from 'react';
 
 import { AppDataTableProvider, AppDataTableShell } from '@/components/ui/app-data-table';
 import { useAuditLogs } from '@/hooks/use-settings';
-import { APP_TABLE_LOCALE, formatTableTotal } from '@/lib/ant-table-config';
+import { APP_TABLE_LOCALE, buildTablePaginationConfig } from '@/lib/ant-table-config';
 import { cn } from '@/lib/utils';
 import { AUDIT_ACTION_LABELS } from '@/types/settings-types';
 import type { SystemStatus } from '@/types/settings-types';
@@ -68,7 +68,7 @@ function StatusCard({
 
 export function SystemAuditPanel({ systemStatus }: SystemAuditPanelProps) {
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(10);
   const { data, isPending } = useAuditLogs(page, pageSize);
 
   return (
@@ -112,18 +112,15 @@ export function SystemAuditPanel({ systemStatus }: SystemAuditPanelProps) {
               dataSource={data?.items ?? []}
               scroll={{ x: 800 }}
               locale={APP_TABLE_LOCALE}
-              pagination={{
+              pagination={buildTablePaginationConfig({
                 current: page,
                 pageSize,
                 total: data?.total ?? 0,
-                showSizeChanger: true,
-                pageSizeOptions: [10, 25, 50, 100],
-                showTotal: formatTableTotal,
-                onChange: (nextPage, nextSize) => {
+                onChange: (nextPage, nextPageSize) => {
                   setPage(nextPage);
-                  setPageSize(nextSize);
+                  setPageSize(nextPageSize);
                 },
-              }}
+              })}
               columns={[
                 {
                   title: 'Время',

@@ -56,9 +56,14 @@ export function useUpdateAppSettings() {
       if (!result.success) throw result;
       return result.data!;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.settings.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.settings.publicApp });
+    onSuccess: (data) => {
+      queryClient.setQueryData<SettingsBundle | undefined>(
+        queryKeys.settings.bundle,
+        (prev) => (prev ? { ...prev, app: data } : prev),
+      );
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.settings.publicApp,
+      });
       showActionSuccess(
         'Общие настройки сохранены',
         'Изменения применены. При смене срока хранения старые записи аудита могут быть удалены.',
@@ -84,7 +89,6 @@ export function useUpdateNotificationSettings() {
         queryKeys.settings.bundle,
         (prev) => (prev ? { ...prev, notification: data } : prev),
       );
-      queryClient.invalidateQueries({ queryKey: queryKeys.settings.all });
       showActionSuccess(
         'Настройки уведомлений сохранены',
         data.isEnabled

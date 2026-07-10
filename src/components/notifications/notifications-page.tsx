@@ -18,7 +18,7 @@ import {
   useNotificationLogsPage,
   useRunNotificationCheck,
 } from '@/hooks/use-notifications';
-import { APP_TABLE_LOCALE, formatTableTotal } from '@/lib/ant-table-config';
+import { APP_TABLE_LOCALE, buildTablePaginationConfig } from '@/lib/ant-table-config';
 import dayjs from '@/lib/dayjs-config';
 import type { NotificationLogsQuery } from '@/schemas/notifications-schema';
 import type { NotificationLogsPage } from '@/server/actions/notifications/get-notification-logs-page-action';
@@ -44,7 +44,7 @@ type NotificationsPageProps = {
 export function NotificationsPage({ initial }: NotificationsPageProps) {
   const [filters, setFilters] = useState<NotificationLogsQuery>({
     page: 1,
-    pageSize: 25,
+    pageSize: 10,
     search: '',
     status: 'all',
     period: 'all',
@@ -244,16 +244,13 @@ export function NotificationsPage({ initial }: NotificationsPageProps) {
                   emptyText:
                     'Уведомлений пока нет. Запустите проверку или дождитесь cron.',
                 }}
-                pagination={{
+                pagination={buildTablePaginationConfig({
                   current: filters.page,
                   pageSize: filters.pageSize,
                   total: pageData.total,
-                  showSizeChanger: true,
-                  pageSizeOptions: [10, 25, 50, 100],
-                  showTotal: formatTableTotal,
                   onChange: (page, pageSize) =>
                     setFilters((prev) => ({ ...prev, page, pageSize })),
-                }}
+                })}
               />
             </AppDataTableShell>
           </AppDataTableProvider>

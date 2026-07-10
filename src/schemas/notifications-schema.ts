@@ -4,7 +4,7 @@ import { MAX_NOTIFICATION_DAYS, MIN_NOTIFICATION_DAYS } from '@/constants/notifi
 
 export const notificationLogsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(10).max(100).default(25),
+  pageSize: z.coerce.number().int().min(5).max(100_000).default(10),
   search: z.string().trim().max(200).optional(),
   status: z.enum(['all', 'sent', 'failed']).default('all'),
   period: z.enum(['all', 'today', '7d', '30d']).default('all'),

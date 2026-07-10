@@ -2,6 +2,7 @@
 
 import type { CertStatus } from '@/generated/prisma/client';
 import { requireAuth } from '@/lib/session-helper';
+import { personNamesMatch } from '@/lib/person-name-utils';
 import { checkIdEmployeeSchema } from '@/schemas/employee-schema';
 import { mapErrorToSafeResult } from '@/server/errors/map-error';
 import { certificateService } from '@/server/services/certificate-service';
@@ -32,7 +33,6 @@ export async function getAssignableCertificatesForEmployeeAction(
 
   try {
     const employee = await employeeService.findByIdOrThrow(parsed.data.id);
-    const employeeName = employee.fullName.trim().toLowerCase();
 
     const unassigned = await certificateService.findMany({
       where: { employeeId: null },
@@ -49,7 +49,7 @@ export async function getAssignableCertificatesForEmployeeAction(
     const assignable = unassigned.filter(
       (cert) =>
         cert.status !== 'revoked' &&
-        cert.subjectCN.trim().toLowerCase() === employeeName,
+        personNamesMatch(cert.subjectCN, employee.fullName),
     );
 
     return { success: true, data: assignable };

@@ -189,11 +189,11 @@ export function EmployeeFormDialog({
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Form.Item name="department" label="Отдел" className="!mb-0">
-                    <Input placeholder="ИТ-отдел" />
+                    <Input placeholder="ИТ-отдел" maxLength={150} />
                   </Form.Item>
 
                   <Form.Item name="position" label="Должность" className="!mb-0">
-                    <Input placeholder="Инженер" />
+                    <Input placeholder="Инженер" maxLength={150} />
                   </Form.Item>
                 </div>
               </div>
