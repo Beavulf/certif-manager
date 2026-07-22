@@ -9,6 +9,47 @@ $ReleaseDir = Join-Path $ProjectRoot "release"
 $StandaloneDir = Join-Path $ProjectRoot ".next\standalone"
 $MigrateDir = Join-Path $ReleaseDir "migrate"
 
+function Remove-ExternalReparsePoints {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RootDir
+    )
+
+    $rootFull = (Resolve-Path $RootDir).Path.TrimEnd('\')
+    Get-ChildItem -Path $RootDir -Recurse -Force -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.PSIsContainer -and
+            (($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)
+        } |
+        ForEach-Object {
+            $target = $null
+            try { $target = $_.Target } catch { }
+
+            $pointsOutside = $false
+            if ($target) {
+                foreach ($t in @($target)) {
+                    if (-not $t) { continue }
+                    try {
+                        $targetFull = [IO.Path]::GetFullPath($t).TrimEnd('\')
+                        if (-not $targetFull.StartsWith($rootFull, [StringComparison]::OrdinalIgnoreCase)) {
+                            $pointsOutside = $true
+                        }
+                    } catch {
+                        $pointsOutside = $true
+                    }
+                }
+            } else {
+                # Unknown reparse target — safer to drop from release package
+                $pointsOutside = $true
+            }
+
+            if ($pointsOutside) {
+                Write-Host "Removing external link: $($_.FullName)" -ForegroundColor Yellow
+                $_.Delete()
+            }
+        }
+}
+
 Write-Host "=== Cert Manager release build ===" -ForegroundColor Cyan
 
 if (-not (Test-Path ".env")) {
@@ -59,6 +100,7 @@ Remove-Item "$ReleaseDir\package-lock.json" -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $MigrateDir | Out-Null
 @'
 {
+  "name": "cert-manager-migrate",
   "private": true,
   "dependencies": {
     "prisma": "7.8.0",
@@ -68,14 +110,63 @@ New-Item -ItemType Directory -Path $MigrateDir | Out-Null
 '@ | Set-Content -Path "$MigrateDir\package.json" -Encoding ASCII
 
 $ErrorActionPreference = "Continue"
-npm install --prefix $MigrateDir --omit=dev --no-package-lock
+npm install --prefix $MigrateDir --omit=dev --no-package-lock --ignore-workspace
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $ErrorActionPreference = "Stop"
+
+# npm may create a junction back to the monorepo root (node_modules/cert-manager -> project).
+# Zipping that link recurses into the whole repo and fails with file-lock errors.
+Remove-ExternalReparsePoints -RootDir $ReleaseDir
 
 Write-Host "4/4 Creating zip archive..." -ForegroundColor Cyan
 $ZipPath = Join-Path $ProjectRoot "cert-manager-release.zip"
 if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }
-Compress-Archive -Path "$ReleaseDir\*" -DestinationPath $ZipPath
+
+# Compress-Archive is flaky on Windows; prefer tar (Win10+), fallback to .NET ZipFile.
+$zipOk = $false
+$lastZipError = $null
+
+$tar = Get-Command tar -ErrorAction SilentlyContinue
+if ($tar) {
+    try {
+        & tar -a -c -f $ZipPath -C $ReleaseDir .
+        if ($LASTEXITCODE -eq 0 -and (Test-Path $ZipPath)) {
+            $zipOk = $true
+        } else {
+            $lastZipError = "tar exited with code $LASTEXITCODE"
+        }
+    } catch {
+        $lastZipError = $_
+    }
+}
+
+if (-not $zipOk) {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    for ($attempt = 1; $attempt -le 5; $attempt++) {
+        try {
+            if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force -ErrorAction Stop }
+            if ($attempt -gt 1) {
+                Write-Host "Zip attempt $attempt/5..." -ForegroundColor Yellow
+                Start-Sleep -Seconds (2 * $attempt)
+            }
+            [System.IO.Compression.ZipFile]::CreateFromDirectory(
+                $ReleaseDir,
+                $ZipPath,
+                [System.IO.Compression.CompressionLevel]::Optimal,
+                $false
+            )
+            $zipOk = $true
+            break
+        } catch {
+            $lastZipError = $_
+            Write-Warning $_.Exception.Message
+        }
+    }
+}
+
+if (-not $zipOk) {
+    Write-Error "Failed to create zip. Last error: $lastZipError"
+}
 
 Write-Host ""
 Write-Host "=== Done ===" -ForegroundColor Green

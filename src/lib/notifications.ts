@@ -1,6 +1,7 @@
 import { certificateService } from "@/server/services/certificate-service";
 import { notificationLogService } from "@/server/services/notification-log-service";
 import { notificationSettingsService } from "@/server/services/notification-settings-service";
+import { appSettingsService } from "@/server/services/app-settings-service";
 import { sendExpiryEmail } from "./mail";
 import { auditlogService } from "@/server/services/auditlog-service";
 import { AUDIT_ENTITY } from "@/types/auditlog-types";
@@ -84,6 +85,9 @@ export async function checkExpiringCertificates(
     ? normalizeDays(options.daysOverride)
     : normalizeDays(notifySetting.daysBeforeExpiry ?? [30, 14, 7]);
 
+  const appSettings = await appSettingsService.getOrCreate();
+  const timezone = appSettings.timezone;
+
   let processed = 0;
   let sent = 0;
   let failed = 0;
@@ -91,7 +95,8 @@ export async function checkExpiringCertificates(
   let skippedNoRecipient = 0;
 
   for (const day of checkDays) {
-    const targetDay = dayjs().startOf('day').add(day, 'day');
+    // Fresh instance each iteration — dayjs mutates on add/endOf
+    const targetDay = dayjs().tz(timezone).startOf('day').add(day, 'day');
     const from = targetDay.toDate();
     const to = targetDay.endOf('day').toDate();
 

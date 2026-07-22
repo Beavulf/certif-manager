@@ -1,6 +1,6 @@
 'use client';
 
-import { Checkbox, ConfigProvider, Form, Input, InputNumber, Select, Switch } from 'antd';
+import { ConfigProvider, Form, Input, InputNumber, Select } from 'antd';
 import { Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 
@@ -39,12 +39,6 @@ export function GeneralSettingsForm({ settings }: GeneralSettingsFormProps) {
       timezone: values.timezone,
       adEmailDomain: values.adEmailDomain || null,
       auditLogRetentionDays: values.auditLogRetentionDays,
-      warningDays: settings.warningDays,
-      criticalDays: settings.criticalDays,
-      maxFileSizeMb: settings.maxFileSizeMb,
-      allowedCertTypes: settings.allowedCertTypes,
-      allowedDocTypes: settings.allowedDocTypes,
-      cronCheckTime: settings.cronCheckTime,
     });
   };
 

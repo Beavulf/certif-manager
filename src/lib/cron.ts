@@ -17,14 +17,37 @@ export async function startCronJobs() {
   const settings = await appSettingsService.getOrCreate();
   const { hour, minute } = parseCronTime(settings.cronCheckTime);
 
+  if (
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    throw new Error(
+      `Invalid cronCheckTime "${settings.cronCheckTime}" — expected HH:MM`,
+    );
+  }
+
   expiringCertTask?.stop();
   expiredStatusTask?.stop();
 
+  const expression = `${minute} ${hour} * * *`;
+  if (!cron.validate(expression)) {
+    throw new Error(`Invalid cron expression: ${expression}`);
+  }
+
   expiringCertTask = cron.schedule(
-    `${minute} ${hour} * * *`,
+    expression,
     async () => {
       console.log('[CRON] Checking expiring certificates...');
-      await checkExpiringCertificates({ initiatedBy: 'cron' });
+      try {
+        const result = await checkExpiringCertificates({ initiatedBy: 'cron' });
+        console.log(`[CRON] Expiring check done: ${result.message}`);
+      } catch (error) {
+        console.error('[CRON] Expiring certificates check failed:', error);
+      }
     },
     { timezone: settings.timezone },
   );
@@ -33,7 +56,12 @@ export async function startCronJobs() {
     '0 0 * * *',
     async () => {
       console.log('[CRON] Updating expired statuses...');
-      await updateExpiredStatuses();
+      try {
+        const count = await updateExpiredStatuses();
+        console.log(`[CRON] Expired statuses updated: ${count}`);
+      } catch (error) {
+        console.error('[CRON] Expired status update failed:', error);
+      }
     },
     { timezone: settings.timezone },
   );

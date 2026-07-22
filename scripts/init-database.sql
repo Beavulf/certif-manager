@@ -173,3 +173,6 @@ CREATE TABLE "AppSettings" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "AppSettings_pkey" PRIMARY KEY ("id")
 );
+
+-- Migration: 20260707120000_add_certificate_subject_key_id
+ALTER TABLE "Certificate" ADD COLUMN IF NOT EXISTS "subjectKeyId" TEXT;

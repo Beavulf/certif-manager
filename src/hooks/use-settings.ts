@@ -59,7 +59,10 @@ export function useUpdateAppSettings() {
     onSuccess: (data) => {
       queryClient.setQueryData<SettingsBundle | undefined>(
         queryKeys.settings.bundle,
-        (prev) => (prev ? { ...prev, app: data } : prev),
+        (prev) =>
+          prev
+            ? { ...prev, app: data.app, systemStatus: data.systemStatus }
+            : prev,
       );
       queryClient.invalidateQueries({
         queryKey: queryKeys.settings.publicApp,

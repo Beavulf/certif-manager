@@ -47,11 +47,6 @@ export function CertificatesUploadSettingsForm({
 
   const onFinish = async (values: Record<string, unknown>) => {
     await mutateAsync({
-      appName: settings.appName,
-      organizationName: settings.organizationName,
-      timezone: settings.timezone,
-      adEmailDomain: settings.adEmailDomain,
-      auditLogRetentionDays: settings.auditLogRetentionDays,
       warningDays: values.warningDays,
       criticalDays: values.criticalDays,
       cronCheckTime: values.cronCheckTime,

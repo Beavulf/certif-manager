@@ -44,6 +44,21 @@ export function handlePrismaError(error: unknown): never {
       case 'P2014':
         // удаление одного элемента нарушает связь many-to-many
         throw new ConflictError('Cannot delete record because it is referenced elsewhere');
+
+      case 'P2021': {
+        const table = String(error.meta?.table ?? 'unknown');
+        throw new DatabaseError(
+          `Таблица «${table}» отсутствует в базе. Выполните миграции: run-migrate.ps1 или npx prisma migrate deploy`,
+        );
+      }
+
+      case 'P2022': {
+        const column = String(error.meta?.column ?? 'unknown');
+        throw new DatabaseError(
+          `Колонка «${column}» отсутствует в базе. Выполните миграции: run-migrate.ps1 или npx prisma migrate deploy`,
+        );
+      }
+
       default:
         throw new DatabaseError(`Database error: ${error.code}`);
     }

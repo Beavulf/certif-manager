@@ -4,61 +4,87 @@ import { MAX_NOTIFICATION_DAYS, MIN_NOTIFICATION_DAYS } from '@/constants/notifi
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
+const appSettingsFields = {
+  appName: z
+    .string()
+    .trim()
+    .min(1, 'Название обязательно')
+    .max(100, 'Не более 100 символов'),
+  organizationName: z
+    .string()
+    .trim()
+    .max(200, 'Не более 200 символов')
+    .optional()
+    .nullable(),
+  timezone: z.string().trim().min(1, 'Часовой пояс обязателен'),
+  warningDays: z.coerce
+    .number()
+    .int('Только целое число')
+    .min(1, 'Минимум 1 день')
+    .max(365, 'Максимум 365 дней'),
+  criticalDays: z.coerce
+    .number()
+    .int('Только целое число')
+    .min(1, 'Минимум 1 день')
+    .max(365, 'Максимум 365 дней'),
+  maxFileSizeMb: z.coerce
+    .number()
+    .int('Только целое число')
+    .min(1, 'Минимум 1 МБ')
+    .max(100, 'Максимум 100 МБ'),
+  allowedCertTypes: z
+    .array(z.string().trim().startsWith('.', 'Расширение должно начинаться с точки'))
+    .min(1, 'Выберите хотя бы один тип сертификата'),
+  allowedDocTypes: z
+    .array(z.string().trim().startsWith('.', 'Расширение должно начинаться с точки'))
+    .min(1, 'Выберите хотя бы один тип документа'),
+  cronCheckTime: z
+    .string()
+    .trim()
+    .regex(timeRegex, 'Формат: ЧЧ:ММ (например, 08:00)'),
+  adEmailDomain: z
+    .string()
+    .trim()
+    .max(100, 'Не более 100 символов')
+    .optional()
+    .nullable(),
+  auditLogRetentionDays: z.coerce
+    .number()
+    .int('Только целое число')
+    .min(7, 'Минимум 7 дней')
+    .max(3650, 'Максимум 10 лет'),
+};
+
+/** Partial update: each settings form sends only its own fields. */
 export const updateAppSettingsSchema = z
   .object({
-    appName: z
-      .string()
-      .trim()
-      .min(1, 'Название обязательно')
-      .max(100, 'Не более 100 символов'),
-    organizationName: z
-      .string()
-      .trim()
-      .max(200, 'Не более 200 символов')
-      .optional()
-      .nullable(),
-    timezone: z.string().trim().min(1, 'Часовой пояс обязателен'),
-    warningDays: z.coerce
-      .number()
-      .int('Только целое число')
-      .min(1, 'Минимум 1 день')
-      .max(365, 'Максимум 365 дней'),
-    criticalDays: z.coerce
-      .number()
-      .int('Только целое число')
-      .min(1, 'Минимум 1 день')
-      .max(365, 'Максимум 365 дней'),
-    maxFileSizeMb: z.coerce
-      .number()
-      .int('Только целое число')
-      .min(1, 'Минимум 1 МБ')
-      .max(100, 'Максимум 100 МБ'),
-    allowedCertTypes: z
-      .array(z.string().trim().startsWith('.', 'Расширение должно начинаться с точки'))
-      .min(1, 'Выберите хотя бы один тип сертификата'),
-    allowedDocTypes: z
-      .array(z.string().trim().startsWith('.', 'Расширение должно начинаться с точки'))
-      .min(1, 'Выберите хотя бы один тип документа'),
-    cronCheckTime: z
-      .string()
-      .trim()
-      .regex(timeRegex, 'Формат: ЧЧ:ММ (например, 08:00)'),
-    adEmailDomain: z
-      .string()
-      .trim()
-      .max(100, 'Не более 100 символов')
-      .optional()
-      .nullable(),
-    auditLogRetentionDays: z.coerce
-      .number()
-      .int('Только целое число')
-      .min(7, 'Минимум 7 дней')
-      .max(3650, 'Максимум 10 лет'),
+    appName: appSettingsFields.appName.optional(),
+    organizationName: appSettingsFields.organizationName,
+    timezone: appSettingsFields.timezone.optional(),
+    warningDays: appSettingsFields.warningDays.optional(),
+    criticalDays: appSettingsFields.criticalDays.optional(),
+    maxFileSizeMb: appSettingsFields.maxFileSizeMb.optional(),
+    allowedCertTypes: appSettingsFields.allowedCertTypes.optional(),
+    allowedDocTypes: appSettingsFields.allowedDocTypes.optional(),
+    cronCheckTime: appSettingsFields.cronCheckTime.optional(),
+    adEmailDomain: appSettingsFields.adEmailDomain,
+    auditLogRetentionDays: appSettingsFields.auditLogRetentionDays.optional(),
   })
-  .refine((data) => data.criticalDays <= data.warningDays, {
-    message: 'Критический порог не может быть больше порога предупреждения',
-    path: ['criticalDays'],
-  });
+  .refine(
+    (data) =>
+      Object.values(data).some((value) => value !== undefined),
+    { message: 'Нет данных для обновления' },
+  )
+  .refine(
+    (data) =>
+      data.criticalDays === undefined ||
+      data.warningDays === undefined ||
+      data.criticalDays <= data.warningDays,
+    {
+      message: 'Критический порог не может быть больше порога предупреждения',
+      path: ['criticalDays'],
+    },
+  );
 
 export type UpdateAppSettingsInput = z.infer<typeof updateAppSettingsSchema>;
 
