@@ -45,4 +45,5 @@ next-env.d.ts
 
 # release artifacts and local sample certificates
 *.zip
+/release/
 /certs/

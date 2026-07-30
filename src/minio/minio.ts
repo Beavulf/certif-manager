@@ -13,7 +13,7 @@ const minioClient = new Minio.Client({
 
 export const BUCKET = process.env.MINIO_BUCKET!
 
-// Вызывается один раз при старте (из instrumentation.ts)
+// Вызывается один раз при старте (из start-background-jobs / instrumentation)
 export async function initMinioBucket() {
   const exists = await minioClient.bucketExists(BUCKET)
   if (!exists) {

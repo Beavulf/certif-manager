@@ -34,15 +34,27 @@ try {
         throw "Database migration failed (see output above)"
     }
 
-    Write-Host "Starting app on port ${env:PORT:-3000}..." -ForegroundColor Green
-    Write-Host "URL: http://localhost:${env:PORT:-3000}" -ForegroundColor Green
+    if (-not $env:PORT) {
+        $env:PORT = "3003"
+    }
+    Write-Host "Starting app on port $($env:PORT)..." -ForegroundColor Green
+    Write-Host "URL: http://localhost:$($env:PORT)" -ForegroundColor Green
     if (-not $env:COOKIE_SECURE) {
         $env:COOKIE_SECURE = "false"
     }
     $env:HOSTNAME = "0.0.0.0"
-    node server.js
+
+    # Prefer standalone-start.cjs so cron/notifications boot even when
+    # Next.js 16 skips instrumentation.ts under `node server.js`.
+    $entry = if (Test-Path (Join-Path $AppDir "standalone-start.cjs")) {
+        "standalone-start.cjs"
+    } else {
+        "server.js"
+    }
+    Write-Host "Entry: $entry" -ForegroundColor Cyan
+    node $entry
     if ($LASTEXITCODE -ne 0) {
-        throw "node server.js exited with code $LASTEXITCODE"
+        throw "node $entry exited with code $LASTEXITCODE"
     }
 } catch {
     $exitCode = 1

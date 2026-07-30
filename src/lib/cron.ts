@@ -1,8 +1,19 @@
-import { checkExpiringCertificates, updateExpiredStatuses } from './notifications';
-import { appSettingsService } from '@/server/services/app-settings-service';
+type CronTask = ReturnType<typeof import('node-cron').schedule>;
 
-let expiringCertTask: ReturnType<typeof import('node-cron').schedule> | null = null;
-let expiredStatusTask: ReturnType<typeof import('node-cron').schedule> | null = null;
+type CronGlobal = typeof globalThis & {
+  __certManagerCronTasks?: {
+    expiring: CronTask | null;
+    expiredStatus: CronTask | null;
+  };
+};
+
+function getCronTasks() {
+  const g = globalThis as CronGlobal;
+  if (!g.__certManagerCronTasks) {
+    g.__certManagerCronTasks = { expiring: null, expiredStatus: null };
+  }
+  return g.__certManagerCronTasks;
+}
 
 function parseCronTime(time: string): { minute: number; hour: number } {
   const [hourStr, minuteStr] = time.split(':');
@@ -14,6 +25,13 @@ function parseCronTime(time: string): { minute: number; hour: number } {
 
 export async function startCronJobs() {
   const cron = (await import('node-cron')).default;
+  const { checkExpiringCertificates, updateExpiredStatuses } = await import(
+    './notifications'
+  );
+  const { appSettingsService } = await import(
+    '@/server/services/app-settings-service'
+  );
+
   const settings = await appSettingsService.getOrCreate();
   const { hour, minute } = parseCronTime(settings.cronCheckTime);
 
@@ -30,15 +48,18 @@ export async function startCronJobs() {
     );
   }
 
-  expiringCertTask?.stop();
-  expiredStatusTask?.stop();
+  const tasks = getCronTasks();
+  tasks.expiring?.destroy();
+  tasks.expiredStatus?.destroy();
+  tasks.expiring = null;
+  tasks.expiredStatus = null;
 
   const expression = `${minute} ${hour} * * *`;
   if (!cron.validate(expression)) {
     throw new Error(`Invalid cron expression: ${expression}`);
   }
 
-  expiringCertTask = cron.schedule(
+  tasks.expiring = cron.schedule(
     expression,
     async () => {
       console.log('[CRON] Checking expiring certificates...');
@@ -52,7 +73,7 @@ export async function startCronJobs() {
     { timezone: settings.timezone },
   );
 
-  expiredStatusTask = cron.schedule(
+  tasks.expiredStatus = cron.schedule(
     '0 0 * * *',
     async () => {
       console.log('[CRON] Updating expired statuses...');

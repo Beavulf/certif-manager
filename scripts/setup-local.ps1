@@ -27,5 +27,5 @@ npx prisma migrate deploy
 
 Write-Host ""
 Write-Host "=== Done ===" -ForegroundColor Green
-Write-Host "Dev:        npm run dev     -> http://localhost:3000"
+Write-Host "Dev:        npm run dev     -> http://localhost:3003"
 Write-Host "Production: npm run build && npm run start"

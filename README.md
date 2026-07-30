@@ -78,7 +78,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup-server.ps1
 npm run start
 ```
 
-Приложение: **http://localhost:3000**
+Приложение: **http://localhost:3003**
 
 ---
 
@@ -106,9 +106,11 @@ copy .env.example .env
 powershell -ExecutionPolicy Bypass -File .\server-start.ps1
 ```
 
-Скрипт применит миграции и запустит `node server.js`.
+Скрипт применит миграции и запустит `node standalone-start.cjs` (поднимает Next server и через `/api/health` стартует cron).
 
 > На сервере нужен только **Node.js**, исходники TypeScript не требуются.
+>
+> Важно: не запускайте просто `node server.js` — в Next.js 16 standalone тогда cron может не подняться до первого захода в UI. Используйте `standalone-start.cjs` или `server-start.ps1`.
 
 ---
 
@@ -122,7 +124,7 @@ npm install -g pm2-windows-startup
 pm2-startup install
 
 cd C:\apps\cert-manager
-pm2 start server.js --name cert-manager
+pm2 start standalone-start.cjs --name cert-manager
 pm2 save
 ```
 
@@ -137,7 +139,7 @@ pm2 save
 
 ```powershell
 $env:PORT = "8080"
-node server.js
+node standalone-start.cjs
 ```
 
 ---
@@ -163,7 +165,7 @@ npm run dev
 
 | Сервис | Адрес |
 |--------|-------|
-| Приложение | http://localhost:3000 |
+| Приложение | http://localhost:3003 |
 | RustFS Console | http://127.0.0.1:9001 |
 | PostgreSQL | localhost:5432 |
 
