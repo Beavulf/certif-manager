@@ -9,6 +9,7 @@ import {
 import Link from 'next/link';
 
 import type { DashboardKpi } from '@/types/dashboard-types';
+import { FadeIn } from '@/components/ui/fade-in';
 import { cn } from '@/lib/utils';
 
 type DashboardKpiCardsProps = {
@@ -61,7 +62,7 @@ export function DashboardKpiCards({ kpi }: DashboardKpiCardsProps) {
 
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {CARDS.map((card) => {
+      {CARDS.map((card, cardIndex) => {
         const Icon = card.icon;
         const value = kpi[card.key];
         const isNotificationsCard = card.key === 'notificationsToday';
@@ -75,11 +76,11 @@ export function DashboardKpiCards({ kpi }: DashboardKpiCardsProps) {
             : card.href;
 
         return (
+          <FadeIn key={card.key} delay={cardIndex * 0.05}>
           <Link
-            key={card.key}
             href={href}
             className={cn(
-              'group flex items-center gap-2.5 rounded-lg border px-3 py-2 shadow-sm transition-all',
+              'group flex h-full items-center gap-2.5 rounded-lg border px-3 py-2 shadow-sm transition-all',
               'hover:-translate-y-0.5 hover:shadow-md',
               card.className,
             )}
@@ -102,6 +103,7 @@ export function DashboardKpiCards({ kpi }: DashboardKpiCardsProps) {
               </p>
             </div>
           </Link>
+          </FadeIn>
         );
       })}
     </div>

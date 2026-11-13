@@ -210,10 +210,41 @@ body {
   background: hsl(220 14% 96% / 0.8) !important;
 }
 
+/* Подсветка строки при наведении (как в списке сотрудников).
+   Правила cert-row-* перекрашивают строки статусов с !important и
+   глушат стандартный ховер antd — возвращаем его с !important.
+   Выбранная строка не перекрашивается, чтобы выделение оставалось видимым. */
+.app-data-table
+  .ant-table-wrapper
+  .ant-table-tbody > tr.ant-table-row:not(.ant-table-row-selected):hover > td {
+  background: hsl(var(--muted) / 0.55) !important;
+}
+
+.app-data-table .ant-table-wrapper .ant-table-tbody > tr > td {
+  transition: background-color 0.15s ease;
+}
+
 .cert-row-group-start td {
   border-top: 2px solid hsl(var(--border) / 0.85) !important;
 }
 
 .cert-row-group-start td:first-child {
   padding-top: 16px !important;
+}
+/* Уважение к системной настройке «уменьшенное движение»:
+   пульсация скелетонов и прочие CSS-анимации отключаются. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse,
+  .animate-spin {
+    animation: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
 }

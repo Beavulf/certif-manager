@@ -16,14 +16,13 @@ import { DashboardSystemPanel } from '@/components/dashboard/dashboard-system-pa
 import { DASHBOARD_WIDGETS, type DashboardWidgetId } from '@/constants/dashboard-widgets';
 import { useDashboard } from '@/hooks/use-dashboard';
 import { useDashboardLayout } from '@/hooks/use-dashboard-layout';
-import type { EmployeeListItem } from '@/lib/employee-table-utils';
 import { showActionError } from '@/lib/toast-messages';
+import { FadeIn } from '@/components/ui/fade-in';
 import type { DashboardData } from '@/types/dashboard-types';
 import type { SafeResult } from '@/types/safe-result-types';
 
 type DashboardPageClientProps = {
   initial: SafeResult<DashboardData>;
-  initialEmployees?: SafeResult<EmployeeListItem[]>;
 };
 
 function getWidgetLabel(id: DashboardWidgetId): string {
@@ -32,7 +31,6 @@ function getWidgetLabel(id: DashboardWidgetId): string {
 
 export function DashboardPageClient({
   initial,
-  initialEmployees,
 }: DashboardPageClientProps) {
   const initialData = initial.success ? initial.data : undefined;
   const { data, error } = useDashboard(initialData);
@@ -57,13 +55,7 @@ export function DashboardPageClient({
     const isEmpty = dashboard.kpi.totalCertificates === 0;
 
     return {
-      'employee-search': (
-        <DashboardEmployeeSearch
-          initialEmployees={
-            initialEmployees?.success ? initialEmployees.data : undefined
-          }
-        />
-      ),
+      'employee-search': <DashboardEmployeeSearch />,
       'expiry-calendar': (
         <DashboardExpiryCalendarPanel calendar={dashboard.expiryCalendar} />
       ),
@@ -81,7 +73,7 @@ export function DashboardPageClient({
       ),
       activity: <DashboardActivityFeed items={dashboard.recentActivity} />,
     } satisfies Record<DashboardWidgetId, ReactNode>;
-  }, [dashboard, initialEmployees]);
+  }, [dashboard]);
 
   if (!dashboard || !widgetContent) {
     return (
@@ -92,16 +84,17 @@ export function DashboardPageClient({
   }
 
   const renderColumn = (column: 'main' | 'side') =>
-    prefs.order[column].map((widgetId) => (
-      <DashboardCollapsibleSection
-        key={widgetId}
-        widgetId={widgetId}
-        title={getWidgetLabel(widgetId)}
-        collapsed={Boolean(prefs.collapsed[widgetId])}
-        onToggle={toggleCollapsed}
-      >
-        {widgetContent[widgetId]}
-      </DashboardCollapsibleSection>
+    prefs.order[column].map((widgetId, index) => (
+      <FadeIn key={widgetId} delay={index * 0.05}>
+        <DashboardCollapsibleSection
+          widgetId={widgetId}
+          title={getWidgetLabel(widgetId)}
+          collapsed={Boolean(prefs.collapsed[widgetId])}
+          onToggle={toggleCollapsed}
+        >
+          {widgetContent[widgetId]}
+        </DashboardCollapsibleSection>
+      </FadeIn>
     ));
 
   return (
@@ -129,16 +122,17 @@ export function DashboardPageClient({
         <div className="flex min-w-0 flex-col gap-4">{renderColumn('side')}</div>
       </section>
 
-      {prefs.order.full.map((widgetId) => (
-        <DashboardCollapsibleSection
-          key={widgetId}
-          widgetId={widgetId}
-          title={getWidgetLabel(widgetId)}
-          collapsed={Boolean(prefs.collapsed[widgetId])}
-          onToggle={toggleCollapsed}
-        >
-          {widgetContent[widgetId]}
-        </DashboardCollapsibleSection>
+      {prefs.order.full.map((widgetId, index) => (
+        <FadeIn key={widgetId} delay={index * 0.05}>
+          <DashboardCollapsibleSection
+            widgetId={widgetId}
+            title={getWidgetLabel(widgetId)}
+            collapsed={Boolean(prefs.collapsed[widgetId])}
+            onToggle={toggleCollapsed}
+          >
+            {widgetContent[widgetId]}
+          </DashboardCollapsibleSection>
+        </FadeIn>
       ))}
     </div>
   );

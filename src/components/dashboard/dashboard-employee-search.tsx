@@ -42,10 +42,6 @@ import { cn } from '@/lib/utils';
 const MAX_RESULTS = 8;
 const SUGGESTION_LIMIT = 5;
 
-type DashboardEmployeeSearchProps = {
-  initialEmployees?: EmployeeListItem[];
-};
-
 type EmployeeSearchRow = {
   employee: EmployeeListItem;
   certCount: number;
@@ -237,9 +233,7 @@ function SearchResultsPanel({
   );
 }
 
-export function DashboardEmployeeSearch({
-  initialEmployees,
-}: DashboardEmployeeSearchProps) {
+export function DashboardEmployeeSearch() {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
@@ -252,7 +246,11 @@ export function DashboardEmployeeSearch({
   const inputRef = useRef<HTMLInputElement>(null);
   const trimmedQuery = query.trim();
 
-  const { data: employees = [], isPending } = useGetEmployeesPage(initialEmployees);
+  // Список сотрудников нужен только при взаимодействии с поиском:
+  // включаем запрос по фокусу, чтобы не тянуть его при каждом открытии «Обзора».
+  const { data: employees = [], isPending } = useGetEmployeesPage(undefined, {
+    enabled: open,
+  });
   const { data: appSettings } = usePublicAppSettings();
   const expiryThresholds = useMemo(
     () =>
@@ -442,7 +440,7 @@ export function DashboardEmployeeSearch({
               className="h-11 w-full pl-9"
               autoComplete="off"
             />
-            {isPending && (
+            {open && isPending && (
               <Loader2 className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
             )}
           </div>

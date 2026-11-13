@@ -114,7 +114,38 @@ async function getLastCronCheck(
   };
 }
 
-export async function getSystemStatus(): Promise<SystemStatus> {
+const STATUS_CACHE_TTL_MS = 30_000;
+
+let statusCache: { at: number; status: SystemStatus } | null = null;
+let statusCachePromise: Promise<SystemStatus> | null = null;
+
+/**
+ * Статус системы запрашивается при каждом рендере «Обзора» и его авто-обновлениях.
+ * Пробы MinIO/БД — сетевые вызовы, поэтому кэшируем результат на короткий TTL
+ * и схлопываем параллельные запросы в один. force=true (кнопка «Обновить»)
+ * игнорирует кэш и делает свежие пробы.
+ */
+export async function getSystemStatus(force = false): Promise<SystemStatus> {
+  if (!force) {
+    if (statusCache && Date.now() - statusCache.at < STATUS_CACHE_TTL_MS) {
+      return statusCache.status;
+    }
+
+    if (statusCachePromise) {
+      return statusCachePromise;
+    }
+  }
+
+  statusCachePromise = computeSystemStatus().finally(() => {
+    statusCachePromise = null;
+  });
+
+  const status = await statusCachePromise;
+  statusCache = { at: Date.now(), status };
+  return status;
+}
+
+async function computeSystemStatus(): Promise<SystemStatus> {
   const settings = await appSettingsService.getOrCreate();
 
   let database = { ok: false, message: 'Нет соединения' };

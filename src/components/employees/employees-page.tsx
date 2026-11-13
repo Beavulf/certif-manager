@@ -58,7 +58,9 @@ export function EmployeesPage({ initial }: EmployeesPageProps) {
   const actionParam = searchParams.get('action');
   const highlightId = searchParams.get('highlight');
 
-  const initialData = initial.success ? initial.data : [];
+  // При сбое серверной загрузки передаём undefined: пустой массив означал бы
+  // «свежие данные» в react-query, и таблица молча простояла бы пустой.
+  const initialData = initial.success ? initial.data : undefined;
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] =
     useState<EmployeeStatusFilter>('all');

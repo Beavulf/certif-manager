@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { PageShell } from "@/components/dashboard/page-shell";
 import { CertificatesPage } from "@/components/certificates/certificate-page";
@@ -15,7 +13,7 @@ export default async function Home() {
     },
     orderBy: { uploadedAt: 'desc' },
   }) as SafeResult<Certificate[]>;
-  
+
   return (
     <>
       <DashboardHeader
@@ -23,9 +21,7 @@ export default async function Home() {
         description="Загружай, просматривай и управляем сертификатами."
       />
       <PageShell wide fill>
-        <Suspense fallback={<p className="text-sm text-muted-foreground">Загрузка…</p>}>
-          <CertificatesPage initial={init}/>
-        </Suspense>
+        <CertificatesPage initial={init}/>
       </PageShell>
     </>
   );

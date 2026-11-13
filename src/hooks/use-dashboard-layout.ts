@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
 import {
   DASHBOARD_LAYOUT_STORAGE_KEY,
@@ -14,6 +14,8 @@ export type DashboardLayoutPrefs = {
   order: Record<DashboardWidgetColumn, DashboardWidgetId[]>;
   collapsed: Partial<Record<DashboardWidgetId, boolean>>;
 };
+
+const EMPTY_COLLAPSED: Partial<Record<DashboardWidgetId, boolean>> = {};
 
 function sanitizeOrder(
   order: Record<DashboardWidgetColumn, DashboardWidgetId[]>,
@@ -47,13 +49,13 @@ function sanitizeOrder(
 
 function loadPrefs(): DashboardLayoutPrefs {
   if (typeof window === 'undefined') {
-    return { order: DEFAULT_DASHBOARD_ORDER, collapsed: {} };
+    return { order: DEFAULT_DASHBOARD_ORDER, collapsed: EMPTY_COLLAPSED };
   }
 
   try {
     const raw = localStorage.getItem(DASHBOARD_LAYOUT_STORAGE_KEY);
     if (!raw) {
-      return { order: DEFAULT_DASHBOARD_ORDER, collapsed: {} };
+      return { order: DEFAULT_DASHBOARD_ORDER, collapsed: EMPTY_COLLAPSED };
     }
 
     const parsed = JSON.parse(raw) as Partial<DashboardLayoutPrefs>;
@@ -62,76 +64,96 @@ function loadPrefs(): DashboardLayoutPrefs {
         ...DEFAULT_DASHBOARD_ORDER,
         ...parsed.order,
       }),
-      collapsed: parsed.collapsed ?? {},
+      collapsed: parsed.collapsed ?? EMPTY_COLLAPSED,
     };
   } catch {
-    return { order: DEFAULT_DASHBOARD_ORDER, collapsed: {} };
+    return { order: DEFAULT_DASHBOARD_ORDER, collapsed: EMPTY_COLLAPSED };
   }
 }
 
-function savePrefs(prefs: DashboardLayoutPrefs) {
-  localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(prefs));
+// Настройки раскладки — внешний store (localStorage), читаем через useSyncExternalStore:
+// без двойного рендера при монтировании и без setState внутри эффектов.
+let snapshot: DashboardLayoutPrefs = {
+  order: DEFAULT_DASHBOARD_ORDER,
+  collapsed: EMPTY_COLLAPSED,
+};
+let snapshotRead = false;
+const listeners = new Set<() => void>();
+
+function getSnapshot(): DashboardLayoutPrefs {
+  if (!snapshotRead) {
+    snapshot = loadPrefs();
+    snapshotRead = true;
+  }
+  return snapshot;
+}
+
+function getServerSnapshot(): DashboardLayoutPrefs {
+  return { order: DEFAULT_DASHBOARD_ORDER, collapsed: EMPTY_COLLAPSED };
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function commitPrefs(next: DashboardLayoutPrefs) {
+  snapshot = next;
+  snapshotRead = true;
+  try {
+    localStorage.setItem(DASHBOARD_LAYOUT_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // localStorage может быть недоступен (приватный режим) — раскладка просто не сохранится.
+  }
+  listeners.forEach((listener) => listener());
 }
 
 export function useDashboardLayout() {
-  const [prefs, setPrefs] = useState<DashboardLayoutPrefs>(loadPrefs);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    setPrefs(loadPrefs());
-    setReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (ready) {
-      savePrefs(prefs);
-    }
-  }, [prefs, ready]);
+  const prefs = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const toggleCollapsed = useCallback((id: DashboardWidgetId) => {
-    setPrefs((prev) => ({
-      ...prev,
+    const current = getSnapshot();
+    commitPrefs({
+      ...current,
       collapsed: {
-        ...prev.collapsed,
-        [id]: !prev.collapsed[id],
+        ...current.collapsed,
+        [id]: !current.collapsed[id],
       },
-    }));
+    });
   }, []);
 
   const moveWidget = useCallback(
     (id: DashboardWidgetId, direction: 'up' | 'down') => {
-      setPrefs((prev) => {
-        const column = (['main', 'side', 'full'] as const).find((col) =>
-          prev.order[col].includes(id),
-        );
-        if (!column) return prev;
+      const current = getSnapshot();
+      const column = (['main', 'side', 'full'] as const).find((col) =>
+        current.order[col].includes(id),
+      );
+      if (!column) return;
 
-        const list = [...prev.order[column]];
-        const index = list.indexOf(id);
-        const target = direction === 'up' ? index - 1 : index + 1;
-        if (target < 0 || target >= list.length) return prev;
+      const list = [...current.order[column]];
+      const index = list.indexOf(id);
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= list.length) return;
 
-        [list[index], list[target]] = [list[target], list[index]];
+      [list[index], list[target]] = [list[target], list[index]];
 
-        return {
-          ...prev,
-          order: {
-            ...prev.order,
-            [column]: list,
-          },
-        };
+      commitPrefs({
+        ...current,
+        order: {
+          ...current.order,
+          [column]: list,
+        },
       });
     },
     [],
   );
 
   const resetLayout = useCallback(() => {
-    setPrefs({ order: DEFAULT_DASHBOARD_ORDER, collapsed: {} });
+    commitPrefs({ order: DEFAULT_DASHBOARD_ORDER, collapsed: EMPTY_COLLAPSED });
   }, []);
 
   return {
     prefs,
-    ready,
     toggleCollapsed,
     moveWidget,
     resetLayout,

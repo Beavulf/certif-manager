@@ -34,7 +34,10 @@ export function useGetEmployees() {
   });
 }
 
-export function useGetEmployeesPage(initialData?: EmployeeListItem[]) {
+export function useGetEmployeesPage(
+  initialData?: EmployeeListItem[],
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: queryKeys.employees.page(),
     queryFn: async () => {
@@ -45,6 +48,7 @@ export function useGetEmployeesPage(initialData?: EmployeeListItem[]) {
       return result.data;
     },
     initialData,
+    enabled: options?.enabled ?? true,
     ...QUERY_CONFIG,
   });
 }

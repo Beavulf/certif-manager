@@ -1,5 +1,3 @@
-import { Suspense } from 'react';
-
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { PageShell } from '@/components/dashboard/page-shell';
 import { EmployeesPage } from '@/components/employees/employees-page';
@@ -15,9 +13,7 @@ export default async function EmployeesRoutePage() {
         description="Справочник сотрудников, привязка сертификатов и контактные данные для уведомлений."
       />
       <PageShell wide fill>
-        <Suspense fallback={<p className="text-sm text-muted-foreground">Загрузка…</p>}>
-          <EmployeesPage initial={initial} />
-        </Suspense>
+        <EmployeesPage initial={initial} />
       </PageShell>
     </>
   );
