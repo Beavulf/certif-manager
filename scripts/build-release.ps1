@@ -131,10 +131,11 @@ if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }
 $zipOk = $false
 $lastZipError = $null
 
-$tar = Get-Command tar -ErrorAction SilentlyContinue
-if ($tar) {
+# Только Windows tar (System32): GNU tar из Git Bash трактует "C:\..." как удалённый хост.
+$tarPath = Join-Path $env:SystemRoot "System32\tar.exe"
+if (Test-Path $tarPath) {
     try {
-        & tar -a -c -f $ZipPath -C $ReleaseDir .
+        & $tarPath -a -c -f $ZipPath -C $ReleaseDir .
         if ($LASTEXITCODE -eq 0 -and (Test-Path $ZipPath)) {
             $zipOk = $true
         } else {
