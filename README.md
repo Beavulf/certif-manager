@@ -116,6 +116,22 @@ powershell -ExecutionPolicy Bypass -File .\server-start.ps1
 
 ## 3. Запуск в фоне (Windows)
 
+### Надёжные уведомления в 08:00 (рекомендуется)
+
+In-process `node-cron` в интерактивной консоли Windows может пропустить слот
+(`missed execution` / Quick Edit). Надёжнее держать приложение в PM2 **и**
+раз в день дергать HTTP-триггер через Планировщик заданий:
+
+1. В `.env` задайте `CRON_SECRET=...` (длинная случайная строка)
+2. В Планировщике заданий Windows создайте задачу на 08:00 каждый день:
+   ```
+   powershell -ExecutionPolicy Bypass -File C:\apps\cert-manager\run-daily-check.ps1
+   ```
+3. Скрипт вызовет `POST /api/cron/daily-check` — проверка уйдёт даже если
+   внутренний cron в этот момент «проспал».
+
+In-process cron остаётся как запасной вариант.
+
 ### PM2 (рекомендуется)
 
 ```powershell

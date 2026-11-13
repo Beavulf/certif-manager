@@ -15,10 +15,9 @@ export type ParsedCert = {
   subjectKeyId: string | null
 }
 
-/** Форматирует hex-строку SKI для отображения: пары байт через пробел. */
+/** Нормализует hex-строку SKI для отображения: сплошная строка без пробелов. */
 export function formatSubjectKeyId(value: string): string {
-  const normalized = value.replace(/\s+/g, '').toUpperCase()
-  return normalized.replace(/(.{2})(?=.)/g, '$1 ').trim()
+  return value.replace(/[\s:]+/g, '').toUpperCase()
 }
 
 // ─── TLV парсер ───────────────────────────────────────────────

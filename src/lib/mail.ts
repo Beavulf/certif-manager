@@ -154,6 +154,10 @@ function createTransporterFromSettings(settings: NotificationSettings) {
           pass: settings.smtpPassword ?? '',
         }
       : undefined,
+    // Prevent SMTP hangs from blocking the Node event loop (and missing cron ticks).
+    connectionTimeout: 20_000,
+    greetingTimeout: 20_000,
+    socketTimeout: 60_000,
     ...(allowInsecureTls
       ? { tls: { rejectUnauthorized: false } }
       : {}),
