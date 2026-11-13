@@ -9,6 +9,7 @@ import {
   getPublicAppSettingsAction,
   getSettingsAction,
 } from '@/server/actions/settings/get-settings-action';
+import { refreshSystemStatusAction } from '@/server/actions/settings/refresh-system-status-action';
 import { updateAppSettingsAction } from '@/server/actions/settings/update-app-settings-action';
 import { updateNotificationSettingsAction } from '@/server/actions/settings/update-notification-settings-action';
 import {
@@ -61,15 +62,22 @@ export function useUpdateAppSettings() {
         queryKeys.settings.bundle,
         (prev) =>
           prev
-            ? { ...prev, app: data.app, systemStatus: data.systemStatus }
+            ? {
+                ...prev,
+                app: data.app,
+                systemStatus: data.systemStatus,
+              }
             : prev,
       );
       queryClient.invalidateQueries({
         queryKey: queryKeys.settings.publicApp,
       });
+      // Предупреждение про удаление записей — только когда срок хранения реально менялся.
       showActionSuccess(
         'Общие настройки сохранены',
-        'Изменения применены. При смене срока хранения старые записи аудита могут быть удалены.',
+        data.retentionChanged
+          ? 'Изменения применены. Записи аудита старше нового срока хранения удалены.'
+          : 'Изменения применены.',
       );
     },
     onError: (error) => {
@@ -141,14 +149,37 @@ export function useSendTestEmail() {
   });
 }
 
-export function useAuditLogs(page: number, pageSize: number) {
+export type AuditLogsFilters = {
+  action?: string;
+  search?: string;
+};
+
+export function useAuditLogs(
+  page: number,
+  pageSize: number,
+  filters: AuditLogsFilters = {},
+) {
   return useQuery({
-    queryKey: queryKeys.settings.auditLogs(page, pageSize),
+    queryKey: queryKeys.settings.auditLogs(page, pageSize, filters),
     queryFn: async () => {
-      const result = await getAuditLogsAction({ page, pageSize });
+      const result = await getAuditLogsAction({ page, pageSize, ...filters });
       if (!result.success) throw result;
       return result.data!;
     },
     ...QUERY_CONFIG,
+  });
+}
+
+/** Свежие пробы БД/MinIO/cron по кнопке «Обновить» (в обход кэша статуса). */
+export function useRefreshSystemStatus() {
+  return useMutation({
+    mutationFn: async () => {
+      const result = await refreshSystemStatusAction();
+      if (!result.success) throw result;
+      return result.data!;
+    },
+    onError: (error) => {
+      showActionError(error, 'Обновление состояния системы', 'Не удалось обновить статус');
+    },
   });
 }

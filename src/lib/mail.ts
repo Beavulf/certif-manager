@@ -1,6 +1,7 @@
 import type { NotificationSettings } from '@/generated/prisma/client'
 import { AppError, SmtpError } from '@/server/errors/app-error'
 import { auditlogService } from '@/server/services/auditlog-service'
+import { appSettingsService } from '@/server/services/app-settings-service'
 import { notificationSettingsService } from '@/server/services/notification-settings-service'
 import { AUDIT_ENTITY } from '@/types/auditlog-types'
 import nodemailer from 'nodemailer'
@@ -12,6 +13,8 @@ interface SendExpiryEmailParams {
   certCN: string
   validTo: Date
   daysLeft: number
+  appName?: string | null
+  organizationName?: string | null
 }
 
 interface EmailResult {
@@ -19,9 +22,33 @@ interface EmailResult {
   error?: string
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/** Название системы и организации подставляются из «Настроек» приложения. */
+function resolveBrand(params?: Pick<SendExpiryEmailParams, 'appName' | 'organizationName'>) {
+  const appName = params?.appName?.trim() || 'Cert Manager';
+  const organizationName = params?.organizationName?.trim() || '';
+  return { appName, organizationName };
+}
+
 // HTML-шаблон письма
 function buildEmailHtml(params: SendExpiryEmailParams): string {
   const { employeeName, certCN, validTo, daysLeft } = params
+  // В HTML-шаблон значения вставляются экранированными.
+  const { appName, organizationName } = (() => {
+    const brand = resolveBrand(params)
+    return {
+      appName: escapeHtml(brand.appName),
+      organizationName: escapeHtml(brand.organizationName),
+    }
+  })()
 
   const formattedDate = validTo.toLocaleDateString('ru-RU', {
     day: '2-digit',
@@ -50,7 +77,7 @@ function buildEmailHtml(params: SendExpiryEmailParams): string {
               <tr>
                 <td style="background:${urgencyColor};padding:20px 32px;">
                   <p style="margin:0;color:#ffffff;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">
-                    Cert Manager
+                    ${appName}
                   </p>
                   <h1 style="margin:4px 0 0;color:#ffffff;font-size:20px;font-weight:700;">
                     ${urgencyText} — истекает сертификат
@@ -104,7 +131,7 @@ function buildEmailHtml(params: SendExpiryEmailParams): string {
               <tr>
                 <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:16px 32px;">
                   <p style="margin:0;color:#9ca3af;font-size:12px;">
-                    Это автоматическое уведомление от системы Cert Manager. Не отвечайте на это письмо.
+                    Это автоматическое уведомление системы ${appName}${organizationName ? ` (${organizationName})` : ''}. Не отвечайте на это письмо.
                   </p>
                 </td>
               </tr>
@@ -162,16 +189,6 @@ function createTransporterFromSettings(settings: NotificationSettings) {
       ? { tls: { rejectUnauthorized: false } }
       : {}),
   });
-}
-
-async function createTransporter() {
-  const settings = await notificationSettingsService.getOrCreate();
-
-  if (!settings.isEnabled) {
-    throw new SmtpError('Уведомления отключены');
-  }
-
-  return createTransporterFromSettings(settings);
 }
 
 // Основная функция отправки
@@ -275,19 +292,34 @@ export async function sendTestEmail(
     return { success: false, error: 'SMTP не настроен' };
   }
 
+  // Название системы и организации — из настроек приложения, с запасным дефолтом.
+  let brand = { appName: 'Cert Manager', organizationName: '' };
+  try {
+    brand = resolveBrand(await appSettingsService.getOrCreate());
+  } catch {
+    // Нет доступа к настройкам приложения — отправляем с дефолтным названием.
+  }
+
+  // Тема — обычный текст (без HTML-экранирования), в шаблон — экранированные.
+  const orgLine = brand.organizationName
+    ? `<p style="margin:12px 0 0;color:#6b7280;">Организация: ${escapeHtml(brand.organizationName)}</p>`
+    : '';
+  const safeAppName = escapeHtml(brand.appName);
+
   const transporter = createTransporterFromSettings(config);
 
   try {
     await transporter.sendMail({
       from: `"${config.senderName ?? 'Cert Manager'}" <${config.senderEmail}>`,
       to,
-      subject: 'Тестовое письмо — Cert Manager',
+      subject: `Тестовое письмо — ${brand.appName}`,
       html: `
         <div style="font-family:Arial,sans-serif;padding:24px;">
-          <h2 style="margin:0 0 12px;">Тестовое письмо</h2>
+          <h2 style="margin:0 0 12px;">Тестовое письмо — ${safeAppName}</h2>
           <p style="margin:0;color:#374151;">
             SMTP настроен корректно. Уведомления об истечении сертификатов будут отправляться с этого адреса.
           </p>
+          ${orgLine}
         </div>
       `,
     });

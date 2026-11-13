@@ -16,6 +16,8 @@ import type { SafeResult } from '@/types/safe-result-types';
 export type UpdateAppSettingsResult = {
   app: AppSettings;
   systemStatus: SystemStatus;
+  /** true, если при этом сохранении изменился срок хранения аудита (шли удаления). */
+  retentionChanged: boolean;
 };
 
 export async function updateAppSettingsAction(
@@ -79,12 +81,14 @@ export async function updateAppSettingsAction(
 
     const updated = await appSettingsService.update(patch, username);
 
-    if (
-      data.auditLogRetentionDays !== undefined &&
-      data.auditLogRetentionDays !== previous.auditLogRetentionDays
-    ) {
+    const newRetentionDays = data.auditLogRetentionDays;
+    const retentionChanged =
+      newRetentionDays !== undefined &&
+      newRetentionDays !== previous.auditLogRetentionDays;
+
+    if (newRetentionDays !== undefined && retentionChanged) {
       const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - data.auditLogRetentionDays);
+      cutoff.setDate(cutoff.getDate() - newRetentionDays);
       await prisma.auditLog.deleteMany({
         where: { createdAt: { lt: cutoff } },
       });
@@ -113,7 +117,10 @@ export async function updateAppSettingsAction(
 
     const systemStatus = await getSystemStatus();
 
-    return { success: true, data: { app: updated, systemStatus } };
+    return {
+      success: true,
+      data: { app: updated, systemStatus, retentionChanged },
+    };
   } catch (error) {
     return mapErrorToSafeResult(error);
   }

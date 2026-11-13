@@ -145,6 +145,8 @@ export async function checkExpiringCertificates(
           certCN: certificate.subjectCN,
           validTo: certificate.validTo,
           daysLeft: day,
+          appName: appSettings.appName,
+          organizationName: appSettings.organizationName,
         },
         notifySetting,
       );

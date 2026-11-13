@@ -2,7 +2,6 @@
 
 import {
   Checkbox,
-  ConfigProvider,
   Form,
   Input,
   InputNumber,
@@ -28,10 +27,12 @@ import { MAX_NOTIFICATION_DAYS } from '@/constants/notification-days';
 import {
   SettingsLabelWithTooltip,
   SettingsSectionCard,
+  stableStringify,
 } from './settings-ui';
 
 type NotificationSettingsFormProps = {
   settings: NotificationSettingsPublic;
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 function buildFormValues(settings: NotificationSettingsPublic) {
@@ -62,9 +63,15 @@ function toSavePayload(values: Record<string, unknown>) {
   };
 }
 
-export function NotificationSettingsForm({ settings }: NotificationSettingsFormProps) {
+export function NotificationSettingsForm({
+  settings,
+  onDirtyChange,
+}: NotificationSettingsFormProps) {
   const [form] = Form.useForm();
   const syncedKeyRef = useRef<string | null>(null);
+  const syncedValuesRef = useRef<Record<string, unknown> | null>(null);
+  const dirtyRef = useRef(false);
+  const [dirty, setDirty] = useState(false);
   const [testEmail, setTestEmail] = useState('');
   const [testDaysInput, setTestDaysInput] = useState('');
   const [ignoreAlreadySent, setIgnoreAlreadySent] = useState(false);
@@ -73,12 +80,34 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
   const sendTest = useSendTestEmail();
   const runCheck = useRunNotificationCheck();
 
+  const setDirtyState = (value: boolean) => {
+    dirtyRef.current = value;
+    setDirty(value);
+    onDirtyChange?.(value);
+  };
+
+  const applyFormValues = (values: Record<string, unknown>) => {
+    form.setFieldsValue(values);
+    syncedValuesRef.current = values;
+    if (dirtyRef.current) setDirtyState(false);
+  };
+
   useEffect(() => {
     const syncKey = `${settings.id}:${new Date(settings.updatedAt).getTime()}`;
     if (syncedKeyRef.current === syncKey) return;
     syncedKeyRef.current = syncKey;
-    form.setFieldsValue(buildFormValues(settings));
+    // Пока есть несохранённый ввод, настройки из БД форму не перезаписывают.
+    if (dirtyRef.current) return;
+    applyFormValues(buildFormValues(settings));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, settings]);
+
+  const handleValuesChange = () => {
+    const isDirty =
+      stableStringify(form.getFieldsValue(true)) !==
+      stableStringify(syncedValuesRef.current);
+    if (isDirty !== dirtyRef.current) setDirtyState(isDirty);
+  };
 
   const getSavePayload = () => toSavePayload(form.getFieldsValue(true));
 
@@ -98,7 +127,7 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
       const saved = await mutateAsync(payload);
       const syncKey = `${saved.id}:${new Date(saved.updatedAt).getTime()}`;
       syncedKeyRef.current = syncKey;
-      form.setFieldsValue(buildFormValues(saved));
+      applyFormValues(buildFormValues(saved));
     } catch (error) {
       const err = error as { errorFields?: unknown };
       if (err?.errorFields) {
@@ -134,15 +163,13 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
   };
 
   return (
-    <ConfigProvider
-      theme={{
-        token: {
-          colorPrimary: '#b45309',
-          borderRadius: 10,
-        },
-      }}
-    >
-      <Form form={form} layout="vertical" requiredMark={false}>
+    <>
+      <Form
+        form={form}
+        layout="vertical"
+        onValuesChange={handleValuesChange}
+        requiredMark={false}
+      >
         <SettingsSectionCard
           title="Email-уведомления"
           description="Автоматические напоминания сотрудникам об истечении сертификатов."
@@ -336,7 +363,12 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
           </SettingsSectionCard>
         </div>
 
-        <div className="mt-5 flex justify-end">
+        <div className="mt-5 flex items-center justify-end gap-3">
+          {dirty ? (
+            <span className="text-xs text-muted-foreground">
+              Есть несохранённые изменения
+            </span>
+          ) : null}
           <Button type="button" disabled={isPending} onClick={handleSave}>
             {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
             Сохранить уведомления
@@ -397,6 +429,6 @@ export function NotificationSettingsForm({ settings }: NotificationSettingsFormP
           </div>
         </div>
       </SettingsSectionCard>
-    </ConfigProvider>
+    </>
   );
 }

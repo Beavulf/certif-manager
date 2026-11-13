@@ -44,6 +44,9 @@ export function useRunNotificationCheck() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+      // Проверка пишет записи в аудит и двигает «последнюю cron-проверку» —
+      // обновляем кэш настроек (журнал аудита и статус системы).
+      queryClient.invalidateQueries({ queryKey: queryKeys.settings.all });
       showNotificationCheckResult(data);
     },
     onError: (error) => {

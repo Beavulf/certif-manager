@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { AuditAction } from '@/generated/prisma/client';
 import { MAX_NOTIFICATION_DAYS, MIN_NOTIFICATION_DAYS } from '@/constants/notification-days';
 
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -132,4 +133,8 @@ export const testSmtpSchema = z.object({
 export const auditLogsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(5).max(100_000).default(10),
+  action: z.nativeEnum(AuditAction).optional(),
+  search: z.string().trim().max(100).optional(),
 });
+
+export type AuditLogsQueryInput = z.infer<typeof auditLogsQuerySchema>;

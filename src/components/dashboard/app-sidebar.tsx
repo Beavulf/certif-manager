@@ -6,9 +6,15 @@ import { logout } from '@/server/services/graphql-service';
 
 type AppSidebarProps = {
   username: string;
+  appName?: string | null;
+  organizationName?: string | null;
 };
 
-export function AppSidebar({ username }: AppSidebarProps) {
+export function AppSidebar({
+  username,
+  appName,
+  organizationName,
+}: AppSidebarProps) {
   return (
     <aside className="hidden border-r border-border/80 bg-[#fffdf9] lg:flex lg:w-[260px] lg:flex-col">
       <div className="border-b border-border/70 px-5 py-5" style={{height:'85px'}}>
@@ -20,10 +26,10 @@ export function AppSidebar({ username }: AppSidebarProps) {
 
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold tracking-wide text-foreground">
-                Менеджер сертификатов
+                {appName?.trim() || 'Менеджер сертификатов'}
               </p>
-              <p className="text-xs text-muted-foreground">
-                Рабочая область
+              <p className="truncate text-xs text-muted-foreground">
+                {organizationName?.trim() || 'Рабочая область'}
               </p>
             </div>
           </div>

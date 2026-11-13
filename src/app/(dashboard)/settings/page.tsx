@@ -1,5 +1,6 @@
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { PageShell } from '@/components/dashboard/page-shell';
+import { RetryButton } from '@/components/settings/retry-button';
 import { SettingsPageClient } from '@/components/settings/settings-page-client';
 import { getSettingsAction } from '@/server/actions/settings/get-settings-action';
 
@@ -14,9 +15,12 @@ export default async function SettingsPage() {
           description="Не удалось загрузить настройки приложения."
         />
         <PageShell>
-          <p className="text-sm text-red-600">
-            {result.error ?? 'Ошибка загрузки настроек'}
-          </p>
+          <div className="flex flex-col items-start gap-3">
+            <p className="text-sm text-red-600">
+              {result.error ?? 'Ошибка загрузки настроек'}
+            </p>
+            <RetryButton />
+          </div>
         </PageShell>
       </>
     );

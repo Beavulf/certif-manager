@@ -12,9 +12,10 @@ import { logout } from '@/server/services/graphql-service';
 
 type MobileNavProps = {
   username: string;
+  appName?: string | null;
 };
 
-export function MobileNav({ username }: MobileNavProps) {
+export function MobileNav({ username, appName }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -26,7 +27,9 @@ export function MobileNav({ username }: MobileNavProps) {
             <ShieldCheck className="size-4" />
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">Менеджер сертификатов</p>
+            <p className="truncate text-sm font-semibold">
+              {appName?.trim() || 'Менеджер сертификатов'}
+            </p>
             <p className="truncate text-[11px] text-muted-foreground">{username}</p>
           </div>
         </Link>

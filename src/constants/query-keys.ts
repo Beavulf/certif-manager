@@ -35,7 +35,10 @@ export const queryKeys = {
     all: ['settings'] as const,
     bundle: ['settings', 'bundle'] as const,
     publicApp: ['settings', 'public-app'] as const,
-    auditLogs: (page: number, pageSize: number) =>
-      ['settings', 'audit-logs', page, pageSize] as const,
+    auditLogs: (
+      page: number,
+      pageSize: number,
+      filters?: Record<string, unknown>,
+    ) => ['settings', 'audit-logs', page, pageSize, filters ?? {}] as const,
   },
 }

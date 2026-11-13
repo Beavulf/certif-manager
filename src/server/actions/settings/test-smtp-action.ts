@@ -30,11 +30,10 @@ export async function verifySmtpAction(
         };
       }
 
-      const existing = await notificationSettingsService.getOrCreate();
       settings = {
-        ...existing,
+        ...settings,
         ...parsed.data,
-        smtpPassword: parsed.data.smtpPassword || existing.smtpPassword,
+        smtpPassword: parsed.data.smtpPassword || settings.smtpPassword,
       };
     }
 
@@ -94,12 +93,11 @@ export async function sendTestEmailAction(input: {
         };
       }
 
-      const existing = await notificationSettingsService.getOrCreate();
       settings = {
-        ...existing,
+        ...settings,
         ...settingsParsed.data,
         smtpPassword:
-          settingsParsed.data.smtpPassword || existing.smtpPassword,
+          settingsParsed.data.smtpPassword || settings.smtpPassword,
       };
     }
 

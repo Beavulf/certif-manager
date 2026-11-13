@@ -43,6 +43,21 @@ type SettingsSectionCardProps = {
   className?: string;
 };
 
+/**
+ * Стабильная сериализация для сравнения снимка формы с текущими значениями
+ * (ключи объектов сортируются, чтобы порядок полей не влиял на сравнение).
+ */
+export function stableStringify(value: unknown): string {
+  return JSON.stringify(value, (_key, item) => {
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      return Object.fromEntries(
+        Object.entries(item).sort(([a], [b]) => a.localeCompare(b)),
+      );
+    }
+    return item;
+  });
+}
+
 export function SettingsSectionCard({
   title,
   description,

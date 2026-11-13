@@ -8,10 +8,25 @@ import { Toaster } from "sonner";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
-export const metadata: Metadata = {
-  title: 'Менеджер сертификатов',
-  description: 'Учёт сертификатов сотрудников, сроков действия и уведомлений',
-};
+// Название системы задаётся в «Настройках» (appName) и должно применяться
+// в заголовке вкладки браузера. DB может быть недоступна — откатываемся к дефолту.
+export async function generateMetadata(): Promise<Metadata> {
+  let title = 'Менеджер сертификатов';
+  try {
+    const { appSettingsService } = await import(
+      '@/server/services/app-settings-service'
+    );
+    const settings = await appSettingsService.getOrCreate();
+    title = settings.appName?.trim() || title;
+  } catch {
+    // Настройки недоступны (нет БД при первом запуске) — используем дефолт.
+  }
+
+  return {
+    title,
+    description: 'Учёт сертификатов сотрудников, сроков действия и уведомлений',
+  };
+}
 
 export default function RootLayout({
   children,

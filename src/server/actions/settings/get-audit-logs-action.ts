@@ -1,5 +1,6 @@
 'use server';
 
+import type { Prisma } from '@/generated/prisma/client';
 import { requireAuth } from '@/lib/session-helper';
 import { auditLogsQuerySchema } from '@/schemas/settings-schema';
 import { mapErrorToSafeResult } from '@/server/errors/map-error';
@@ -28,18 +29,31 @@ export async function getAuditLogsAction(
     };
   }
 
-  const { page, pageSize } = parsed.data;
+  const { page, pageSize, action, search } = parsed.data;
   const skip = (page - 1) * pageSize;
+
+  const where: Prisma.AuditLogWhereInput = {
+    ...(action ? { action } : {}),
+    ...(search
+      ? {
+          OR: [
+            { adUsername: { contains: search, mode: 'insensitive' } },
+            { displayName: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+  };
 
   try {
     const [items, total] = await Promise.all([
       auditlogService.findMany({
+        where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: pageSize,
         include: { user: true },
       }),
-      auditlogService.count(),
+      auditlogService.count({ where }),
     ]);
 
     return {
