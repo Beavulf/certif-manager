@@ -11,7 +11,12 @@ function sanitizeFileName(fileName: string): string {
 function contentDisposition(fileName: string): string {
   const safeName = sanitizeFileName(fileName);
   const encoded = encodeURIComponent(safeName);
-  return `attachment; filename="${safeName}"; filename*=UTF-8''${encoded}`;
+  // Заголовки HTTP принимают только ASCII: кириллица в filename= роняет
+  // ответ с «Cannot convert argument to a ByteString». Настоящее имя
+  // передаём в filename* (UTF-8, RFC 6266) — его используют все браузеры,
+  // а filename= остаётся ASCII-заглушкой для старых клиентов.
+  const asciiFallback = safeName.replace(/[^\x20-\x7E]/g, '_') || 'download';
+  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
 }
 
 export async function createFileDownloadResponse(
