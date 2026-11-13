@@ -92,6 +92,8 @@ Copy-Item -Path "scripts\server-start.ps1" -Destination "$ReleaseDir\server-star
 Copy-Item -Path "scripts\standalone-start.cjs" -Destination "$ReleaseDir\standalone-start.cjs"
 Copy-Item -Path "scripts\run-daily-check.ps1" -Destination "$ReleaseDir\run-daily-check.ps1"
 Copy-Item -Path "scripts\watchdog.ps1" -Destination "$ReleaseDir\watchdog.ps1"
+Copy-Item -Path "scripts\manage.ps1" -Destination "$ReleaseDir\manage.ps1"
+Copy-Item -Path "scripts\manage.bat" -Destination "$ReleaseDir\manage.bat"
 Copy-Item -Path "scripts\run-migrate.ps1" -Destination "$ReleaseDir\run-migrate.ps1"
 Copy-Item -Path "scripts\init-database.sql" -Destination "$ReleaseDir\init-database.sql"
 Copy-Item -Path "scripts\patch-cookie-secure.ps1" -Destination "$ReleaseDir\patch-cookie-secure.ps1"
