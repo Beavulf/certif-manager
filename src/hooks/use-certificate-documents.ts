@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { QUERY_CONFIG } from '@/constants/query-config';
 import { queryKeys } from '@/constants/query-keys';
+import { downloadFileFromUrl } from '@/lib/download-client';
 import { getDocumentsByCertIdAction } from '@/server/actions/documents/get-document-action';
 import { getDocumentDownloadUrlAction } from '@/server/actions/documents/get-document-download-url-action';
 import { deleteDocumentByIdAction } from '@/server/actions/documents/delete-document-action';
@@ -11,17 +12,6 @@ import uploadDocumentAction from '@/server/actions/documents/upload-document-act
 import { getNotificationLogsByCertificateAction } from '@/server/actions/notifications/get-notification-logs-action';
 
 import type { Document } from '@/generated/prisma/client';
-
-function downloadFromUrl(url: string, fileName: string) {
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  link.rel = 'noopener noreferrer';
-  link.target = '_blank';
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-}
 
 export function useCertificateDocuments(certificateId: string | null, enabled = true) {
   return useQuery<Document[]>({
@@ -105,10 +95,11 @@ export function useDownloadCertificateDocument() {
     mutationFn: async (documentId: string) => {
       const result = await getDocumentDownloadUrlAction(documentId);
       if (!result.success) throw result;
+      const { url, fileName } = result.data!;
+      // Внутри mutationFn, чтобы await downloadDocument() в UI означал
+      // «файл реально скачан», и ошибки скачивания ловились тем же catch.
+      await downloadFileFromUrl(url, fileName);
       return result.data!;
-    },
-    onSuccess: ({ url, fileName }) => {
-      downloadFromUrl(url, fileName);
     },
   });
 }

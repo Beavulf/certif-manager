@@ -71,6 +71,7 @@ export function DashboardSystemPanel({
   const allOk =
     systemStatus.database.ok &&
     systemStatus.minio.ok &&
+    systemStatus.cron.lastCheck.ok &&
     notificationsEnabled;
 
   return (
@@ -108,17 +109,12 @@ export function DashboardSystemPanel({
           }
           icon={Bell}
         />
-        <div className="flex items-start gap-3 rounded-xl border border-border/70 bg-background/60 px-3.5 py-3">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-background/80 text-muted-foreground">
-            <Clock3 className="size-3.5" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">Cron-проверка</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {systemStatus.cron.nextDescription}
-            </p>
-          </div>
-        </div>
+        <StatusRow
+          title="Cron-проверка"
+          ok={systemStatus.cron.lastCheck.ok}
+          message={`${systemStatus.cron.nextDescription}. ${systemStatus.cron.lastCheck.message}`}
+          icon={Clock3}
+        />
 
         <p
           className={cn(

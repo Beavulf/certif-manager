@@ -14,6 +14,11 @@ export type SystemStatus = {
     checkTime: string;
     timezone: string;
     nextDescription: string;
+    lastCheck: {
+      at: string | null;
+      ok: boolean;
+      message: string;
+    };
   };
 };
 

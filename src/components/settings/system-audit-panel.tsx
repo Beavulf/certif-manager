@@ -92,8 +92,8 @@ export function SystemAuditPanel({ systemStatus }: SystemAuditPanelProps) {
           />
           <StatusCard
             title="Cron-проверка"
-            ok
-            message={`${systemStatus.cron.nextDescription}. Обновление статусов — ежедневно в 00:00.`}
+            ok={systemStatus.cron.lastCheck.ok}
+            message={`${systemStatus.cron.nextDescription}. Обновление статусов — ежедневно в 00:00. ${systemStatus.cron.lastCheck.message}`}
             icon={Clock3}
           />
         </div>

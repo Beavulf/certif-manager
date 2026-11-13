@@ -132,6 +132,24 @@ In-process `node-cron` в интерактивной консоли Windows мо
 
 In-process cron остаётся как запасной вариант.
 
+### Сторож приложения каждые 5 минут (рекомендуется)
+
+Панель «Система» в приложении не увидит падение самого приложения. Чтобы
+зависание/падение процесса не осталось незамеченным, добавьте в Планировщик
+заданий задачу на **каждые 5 минут**:
+
+```
+powershell -ExecutionPolicy Bypass -File C:\apps\cert-manager\watchdog.ps1
+```
+
+Скрипт дергает `GET /api/health`. При сбое пишет строку в `logs\watchdog.log`.
+С ключом `-Restart` дополнительно пробует `pm2 restart cert-manager`
+(задача должна выполняться от того же пользователя, что и PM2):
+
+```
+powershell -ExecutionPolicy Bypass -File C:\apps\cert-manager\watchdog.ps1 -Restart
+```
+
 ### PM2 (рекомендуется)
 
 ```powershell

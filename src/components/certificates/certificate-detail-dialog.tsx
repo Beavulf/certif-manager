@@ -35,6 +35,7 @@ import { CertificateDocumentsPanel } from '@/components/certificates/certificate
 import { DetailRow } from '@/components/certificates/certificate-detail/detail-row';
 import { CertificateNotificationsPanel } from '@/components/certificates/certificate-detail/notifications-panel';
 import dayjs from '@/lib/dayjs-config';
+import { downloadFileFromUrl } from '@/lib/download-client';
 import { cn } from '@/lib/utils';
 import {
   useDownloadCertificate,
@@ -206,20 +207,13 @@ export function CertificateDetailDialog({
       const payload = await downloadCertificate(certificateId);
       if (!payload) return;
       const { url, fileName } = payload;
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.rel = 'noopener noreferrer';
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      await downloadFileFromUrl(url, fileName);
       showActionSuccess(
-        'Файл сертификата готов к скачиванию',
+        'Сертификат скачан',
         data ? `${data.subjectCN} · ${fileName}` : fileName,
       );
     } catch (err) {
-      showActionError(err, 'Скачивание сертификата', 'Не удалось получить ссылку на файл');
+      showActionError(err, 'Скачивание сертификата', 'Не удалось скачать файл сертификата');
     }
   };
 

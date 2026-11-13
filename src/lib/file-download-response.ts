@@ -18,10 +18,10 @@ export async function createFileDownloadResponse(
   fileKey: string,
   fileName: string,
 ): Promise<NextResponse> {
-  const [stat, stream] = await Promise.all([
-    getObjectStat(fileKey),
-    getObjectStream(fileKey),
-  ]);
+  // Последовательно: stat → stream. При параллельном Promise.all падение одного
+  // запроса оставляло второй открытый S3-поток незакрытым (утечка сокета).
+  const stat = await getObjectStat(fileKey);
+  const stream = await getObjectStream(fileKey);
 
   const contentType =
     stat.metaData?.['content-type'] ??
