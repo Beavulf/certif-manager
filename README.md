@@ -150,7 +150,27 @@ powershell -ExecutionPolicy Bypass -File C:\apps\cert-manager\watchdog.ps1
 powershell -ExecutionPolicy Bypass -File C:\apps\cert-manager\watchdog.ps1 -Restart
 ```
 
-### PM2 (рекомендуется)
+### Автозапуск через службу NSSM (рекомендуется, если на сервере есть nssm.exe)
+
+Проще всего через панель управления: правый клик по `manage.bat` →
+**«Запуск от имени администратора»** → пункт **7**. Панель сама создаст службу
+`cert-manager`: старт при загрузке сервера без входа пользователя, логи в
+`logs\service.log` / `logs\service.err.log`, ротация 10 МБ. Управление —
+`services.msc` → «cert-manager».
+
+Ручной эквивалент:
+
+```powershell
+nssm install cert-manager "C:\Program Files\nodejs\node.exe" C:\apps\cert-manager\standalone-start.cjs
+nssm set cert-manager AppDirectory C:\apps\cert-manager
+nssm set cert-manager AppEnvironmentExtra PORT=3003 NODE_ENV=production HOSTNAME=0.0.0.0
+nssm set cert-manager AppStdout C:\apps\cert-manager\logs\service.log
+nssm set cert-manager AppStderr C:\apps\cert-manager\logs\service.err.log
+nssm set cert-manager Start SERVICE_AUTO_START
+nssm start cert-manager
+```
+
+### PM2 (альтернатива, если NSSM нет)
 
 ```powershell
 npm install -g pm2

@@ -78,6 +78,32 @@ function Get-Pm2Process {
     return $null
 }
 
+function Get-NodePath {
+    $node = Get-Command node -ErrorAction SilentlyContinue
+    if (-not $node) { return $null }
+    return $node.Source
+}
+
+function Get-NssmPath {
+    $cmd = Get-Command nssm.exe -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    # Частые места установки NSSM
+    foreach ($p in @("C:\nssm\nssm.exe", "C:\nssm-2.24\nssm.exe", "C:\tools\nssm\nssm.exe",
+                     "C:\Program Files\nssm\nssm.exe", "C:\Program Files (x86)\nssm\nssm.exe")) {
+        if (Test-Path $p) { return $p }
+    }
+    return $null
+}
+
+function Test-IsAdmin {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    return ([Security.Principal.WindowsPrincipal]$identity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Get-AppService {
+    return Get-Service -Name "cert-manager" -ErrorAction SilentlyContinue
+}
+
 function Get-DbTarget {
     # Разбор DB_URL → @{ Host; Port; Database }
     $url = $script:EnvVars["DB_URL"]
@@ -224,16 +250,26 @@ function Show-Status {
         Write-StatusLine "error" "Приложение" "не отвечает на http://localhost:$AppPort" $hint
     }
 
-    # 7. PM2
-    $pm2Proc = Get-Pm2Process
-    if ($pm2Proc) {
-        $state = $pm2Proc.pm2_env.status
-        $stateRu = switch ($state) { "online" { "работает" } "stopped" { "остановлен" } default { $state } }
-        Write-StatusLine "ok" "Служба автозапуска PM2" "процесс «cert-manager»: $stateRu"
-    } elseif (Get-Command pm2 -ErrorAction SilentlyContinue) {
-        Write-StatusLine "warn" "Служба автозапуска PM2" "установлена, но процесс «cert-manager» не создан" "Запустите приложение через пункт 1 этого меню"
+    # 7. Автозапуск: NSSM-служба или PM2
+    $service = Get-AppService
+    if ($service) {
+        $stateRu = switch ($service.Status) { "Running" { "работает" } "Stopped" { "остановлена" } default { $service.Status } }
+        if ($service.Status -eq "Running") {
+            Write-StatusLine "ok" "Служба автозапуска (NSSM)" "cert-manager: $stateRu, стартует при загрузке сервера"
+        } else {
+            Write-StatusLine "warn" "Служба автозапуска (NSSM)" "cert-manager: $stateRu" "Запустите приложение (пункт 1) или службу в services.msc"
+        }
     } else {
-        Write-StatusLine "warn" "Служба автозапуска PM2" "не установлена — приложение не переживёт перезагрузку сервера" "Попросите ИТ-специалиста: npm install -g pm2 pm2-windows-startup, затем pm2-startup install"
+        $pm2Proc = Get-Pm2Process
+        if ($pm2Proc) {
+            $state = $pm2Proc.pm2_env.status
+            $stateRu = switch ($state) { "online" { "работает" } "stopped" { "остановлен" } default { $state } }
+            Write-StatusLine "ok" "Автозапуск PM2" "процесс «cert-manager»: $stateRu"
+        } elseif (Get-Command pm2 -ErrorAction SilentlyContinue) {
+            Write-StatusLine "warn" "Автозапуск PM2" "установлен, но процесс «cert-manager» не создан" "Запустите приложение через пункт 1 этого меню"
+        } else {
+            Write-StatusLine "warn" "Автозапуск" "не настроен — после перезагрузки сервера приложение само не стартует" "Выберите пункт 7 — настроит службу автозапуска (NSSM или PM2)"
+        }
     }
 
     # 8. Задачи Планировщика (информационно)
@@ -273,7 +309,19 @@ function Invoke-StartApp {
     $env:HOSTNAME = "0.0.0.0"
     if ($script:EnvVars["COOKIE_SECURE"]) { $env:COOKIE_SECURE = $script:EnvVars["COOKIE_SECURE"] }
 
-    if (Get-Command pm2 -ErrorAction SilentlyContinue) {
+    $service = Get-AppService
+    if ($service) {
+        Write-Host "Запуск службы cert-manager (NSSM)..." -ForegroundColor Cyan
+        if ($service.Status -ne "Running") {
+            try {
+                Start-Service -Name "cert-manager" -ErrorAction Stop
+            } catch {
+                Write-Host "[X] Не удалось запустить службу: $($_.Exception.Message)" -ForegroundColor Red
+                Write-Host "      Логи службы: logs\service.err.log (пункт 6)" -ForegroundColor Yellow
+                return
+            }
+        }
+    } elseif (Get-Command pm2 -ErrorAction SilentlyContinue) {
         $pm2Proc = Get-Pm2Process
         if ($pm2Proc) {
             Write-Host "Запуск через PM2..." -ForegroundColor Cyan
@@ -310,8 +358,20 @@ function Invoke-StartApp {
 
 function Invoke-StopApp {
     $stopped = $false
+    $service = Get-AppService
     $pm2Proc = Get-Pm2Process
-    if ($pm2Proc) {
+    if ($service) {
+        Write-Host "Остановка службы cert-manager (NSSM)..." -ForegroundColor Cyan
+        if ($service.Status -eq "Running") {
+            try {
+                Stop-Service -Name "cert-manager" -ErrorAction Stop
+            } catch {
+                Write-Host "[X] Не удалось остановить службу: $($_.Exception.Message)" -ForegroundColor Red
+                return
+            }
+        }
+        $stopped = $true
+    } elseif ($pm2Proc) {
         Write-Host "Остановка через PM2..." -ForegroundColor Cyan
         & pm2 stop cert-manager | Out-Null
         $stopped = $true
@@ -358,6 +418,8 @@ function Show-Logs {
     $logFiles = @(
         @("logs\app.log", "Вывод приложения"),
         @("logs\app.err.log", "Ошибки приложения"),
+        @("logs\service.log", "Служба NSSM — вывод"),
+        @("logs\service.err.log", "Служба NSSM — ошибки"),
         @("logs\watchdog.log", "Сторож (падения приложения)")
     )
     $foundAny = $false
@@ -375,6 +437,99 @@ function Show-Logs {
     }
 }
 
+function Invoke-SetupAutostart {
+    Write-Host "=== Настройка автозапуска при загрузке сервера ===" -ForegroundColor Cyan
+
+    $nodePath = Get-NodePath
+    if (-not $nodePath) {
+        Write-Host "[X] Node.js не найден — сначала установите Node.js 20 LTS" -ForegroundColor Red
+        return
+    }
+    $entry = if (Test-Path (Join-Path $AppDir "standalone-start.cjs")) { Join-Path $AppDir "standalone-start.cjs" } else { Join-Path $AppDir "server.js" }
+
+    # Установка службы требует прав администратора
+    if (-not (Test-IsAdmin)) {
+        Write-Host "[X] Нужны права администратора." -ForegroundColor Red
+        Write-Host "      Закройте это окно, затем: правый клик по manage.bat → «Запуск от имени администратора»" -ForegroundColor Yellow
+        return
+    }
+
+    $nssm = Get-NssmPath
+    if ($nssm) {
+        Write-Host "Найден NSSM ($nssm) — настраиваю службу Windows..." -ForegroundColor Cyan
+
+        # Убираем PM2-процесс, если он есть — иначе два процесса будут спорить за порт
+        if (Get-Pm2Process) {
+            Write-Host "Останавливаю PM2-процесс cert-manager, чтобы не конфликтовал со службой..." -ForegroundColor Yellow
+            & pm2 delete cert-manager 2>$null | Out-Null
+        }
+
+        $service = Get-AppService
+        if ($service) {
+            Write-Host "Служба уже существует — обновляю настройки..." -ForegroundColor Cyan
+            & $nssm stop cert-manager 2>$null | Out-Null
+        } else {
+            & $nssm install cert-manager $nodePath $entry
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "[X] Не удалось создать службу (nssm install, код $LASTEXITCODE)" -ForegroundColor Red
+                return
+            }
+        }
+
+        $logDir = Join-Path $AppDir "logs"
+        if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+        & $nssm set cert-manager AppDirectory $AppDir
+        & $nssm set cert-manager AppStdout (Join-Path $logDir "service.log")
+        & $nssm set cert-manager AppStderr (Join-Path $logDir "service.err.log")
+        & $nssm set cert-manager AppStdoutCreationDisposition 4
+        & $nssm set cert-manager AppStderrCreationDisposition 4
+        & $nssm set cert-manager AppRotateFiles 1
+        & $nssm set cert-manager AppRotateOnline 1
+        & $nssm set cert-manager AppRotateBytes 10485760
+        & $nssm set cert-manager AppEnvironmentExtra "PORT=$script:AppPort" "NODE_ENV=production" "HOSTNAME=0.0.0.0"
+        & $nssm set cert-manager Description "Cert Manager — учёт сертификатов сотрудников"
+        & $nssm set cert-manager Start SERVICE_AUTO_START
+
+        Write-Host "Запуск службы..." -ForegroundColor Cyan
+        try {
+            Start-Service -Name "cert-manager" -ErrorAction Stop
+        } catch {
+            Write-Host "[X] Служба создана, но не запустилась: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "      Смотрите logs\service.err.log (пункт 6)" -ForegroundColor Yellow
+            return
+        }
+
+        if (Wait-AppReady -Seconds 40) {
+            Write-Host "[+] Служба установлена и работает. Автозапуск при загрузке сервера включён." -ForegroundColor Green
+        } else {
+            Write-Host "[!] Служба создана, но приложение пока не отвечает — подождите минуту и обновите состояние (пункт 5)" -ForegroundColor Yellow
+        }
+        Write-Host "      Управление службой: services.msc → «cert-manager»" -ForegroundColor DarkCyan
+        return
+    }
+
+    # NSSM нет — запасной вариант PM2
+    if (Get-Command pm2 -ErrorAction SilentlyContinue) {
+        Write-Host "NSSM не найден — настраиваю автозапуск через PM2..." -ForegroundColor Cyan
+        $entryPath = $entry
+        & pm2 start $entryPath --name cert-manager | Out-Null
+        & pm2 save | Out-Null
+        if (Get-Command pm2-startup -ErrorAction SilentlyContinue) {
+            & pm2-startup install | Out-Null
+            Write-Host "[+] PM2-процесс создан, автозапуск установлен." -ForegroundColor Green
+        } else {
+            Write-Host "[+] PM2-процесс создан." -ForegroundColor Green
+            Write-Host "[!] Автозапуск PM2 не установлен (нет pm2-startup). Попросите ИТ: npm install -g pm2-windows-startup, затем pm2-startup install" -ForegroundColor Yellow
+        }
+        Write-Host "      Важно: PM2 стартует при входе пользователя в систему — после перезагрузки сервера нужно один раз залогиниться." -ForegroundColor Yellow
+        Write-Host "      Надёжнее установить NSSM (https://nssm.cc) и повторить этот пункт — тогда служба стартует без входа." -ForegroundColor Yellow
+        return
+    }
+
+    Write-Host "[X] Не найден ни NSSM, ни PM2 — автозапуск настроить нельзя." -ForegroundColor Red
+    Write-Host "      Попросите ИТ-специалиста установить NSSM (https://nssm.cc, скачать nssm.exe в C:\nssm\) или PM2 (npm install -g pm2)" -ForegroundColor Yellow
+}
+
 # ───────────────────────── entry ─────────────────────────
 
 try {
@@ -387,10 +542,11 @@ try {
             "stop"        { Invoke-StopApp }
             "restart"     { Invoke-RestartApp }
             "migrate"     { Invoke-Migrate }
+            "autostart"   { Invoke-SetupAutostart }
             "diagnostics" { Show-Status; Show-Logs }
             default {
                 Write-Host "Неизвестное действие: $Action" -ForegroundColor Red
-                Write-Host "Доступны: status | start | stop | restart | migrate | diagnostics"
+                Write-Host "Доступны: status | start | stop | restart | migrate | autostart | diagnostics"
                 exit 1
             }
         }
@@ -415,6 +571,7 @@ try {
         Write-Host "  4 — Применить обновления базы данных (миграции)"
         Write-Host "  5 — Обновить состояние (проверить заново)"
         Write-Host "  6 — Последние события (логи)"
+        Write-Host "  7 — Настроить автозапуск при загрузке сервера (служба)"
         Write-Host "  0 — Выход"
         Write-Host ""
         $choice = Read-Host "Введите номер и нажмите Enter"
@@ -426,6 +583,7 @@ try {
             "4" { Invoke-Migrate }
             "5" { }
             "6" { Show-Logs }
+            "7" { Invoke-SetupAutostart }
             "0" { exit 0 }
             default { Write-Host "Нет такого пункта: $choice" -ForegroundColor Yellow }
         }

@@ -3,8 +3,8 @@
 #
 #   powershell -ExecutionPolicy Bypass -File .\watchdog.ps1
 #
-# С ключом -Restart дополнительно пробует перезапустить процесс через PM2
-# (работает, если задача и PM2 выполняются от одного пользователя):
+# С ключом -Restart дополнительно пробует перезапустить приложение:
+# сначала службу NSSM cert-manager, затем PM2-процесс:
 #
 #   powershell -ExecutionPolicy Bypass -File .\watchdog.ps1 -Restart
 #
@@ -57,15 +57,33 @@ try {
     Write-WatchdogLog "health check FAILED: $reason"
 
     if ($Restart) {
-        try {
-            pm2 restart cert-manager 2>$null
-            if ($LASTEXITCODE -eq 0) {
-                Write-WatchdogLog "restarted via pm2"
-            } else {
-                Write-WatchdogLog "pm2 restart failed (exit $LASTEXITCODE)"
+        $restarted = $false
+
+        # Служба NSSM — основной способ
+        $service = $null
+        try { $service = Get-Service -Name "cert-manager" -ErrorAction SilentlyContinue } catch { }
+        if ($service) {
+            try {
+                Restart-Service -Name "cert-manager" -ErrorAction Stop
+                Write-WatchdogLog "restarted via NSSM service"
+                $restarted = $true
+            } catch {
+                Write-WatchdogLog "service restart failed: $($_.Exception.Message)"
             }
-        } catch {
-            Write-WatchdogLog "pm2 restart unavailable: $($_.Exception.Message)"
+        }
+
+        # PM2 — запасной способ, если службы нет
+        if (-not $restarted -and (Get-Command pm2 -ErrorAction SilentlyContinue)) {
+            try {
+                pm2 restart cert-manager 2>$null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-WatchdogLog "restarted via pm2"
+                } else {
+                    Write-WatchdogLog "pm2 restart failed (exit $LASTEXITCODE)"
+                }
+            } catch {
+                Write-WatchdogLog "pm2 restart unavailable: $($_.Exception.Message)"
+            }
         }
     }
     exit 1
