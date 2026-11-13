@@ -261,7 +261,18 @@ export function CertificatesTable({
           onRow={(record) => {
             const urgency = getExpiryUrgency(record, expiryThresholds);
             return {
-              onDoubleClick: () => onView(record.id),
+              onClick: (event) => {
+                // Клик по чекбоксу, кнопке действия или сортировке не открывает карточку.
+                const target = event.target as HTMLElement;
+                if (
+                  target.closest(
+                    'button, a, input, label, .ant-checkbox-wrapper, .ant-dropdown, .ant-table-column-sorters',
+                  )
+                ) {
+                  return;
+                }
+                onView(record.id);
+              },
               className: cn(
                 'cursor-pointer',
                 getUrgencyRowClass(urgency),

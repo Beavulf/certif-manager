@@ -153,7 +153,9 @@ function AutoAssignReportDialog({
           ) : null}
         </div>
 
-        <DialogFooter className="border-t border-border/70 px-6 py-4">
+        {/* mx-0/mb-0 гасят дефолтные отрицательные отступы DialogFooter:
+            в диалоге с p-0 они прижимали кнопки к нижней границе окна. */}
+        <DialogFooter className="mx-0 mb-0 rounded-b-xl border-t border-border/70 px-6 py-4 pb-5">
           <Button
             type="button"
             className="cursor-pointer"

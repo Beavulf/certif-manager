@@ -6,6 +6,7 @@ import { useMemo } from 'react';
 import { getCertificateByIdAction, getCertificatesByFindMany } from '@/server/actions/certificate/get-certificate-action';
 import { queryKeys } from '@/constants/query-keys';
 import deleteCertificateAction from '@/server/actions/certificate/delete-certificate-action';
+import { revokeExpiredCertificatesAction } from '@/server/actions/certificate/revoke-expired-certificates-action';
 import dayjs from '@/lib/dayjs-config';
 import type { Certificate } from '@/generated/prisma/client';
 import type { CertificatesWithIncludes } from '@/types/certificate-types';
@@ -241,6 +242,23 @@ export function useBulkAutoAssignCertificates() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.certificates.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+    },
+  });
+}
+
+export function useRevokeExpiredCertificates() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { days: number }) => {
+      const result = await revokeExpiredCertificatesAction(input);
+      if (!result.success) throw result;
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.certificates.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },
   });
 }

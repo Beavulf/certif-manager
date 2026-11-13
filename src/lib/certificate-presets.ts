@@ -7,6 +7,11 @@ import type { CertificatesWithIncludes } from '@/types/certificate-types';
 
 export const CERTIFICATE_PRESETS = [
   {
+    id: 'active',
+    label: 'Активны',
+    description: 'Действующий сертификат без угрозы истечения',
+  },
+  {
     id: 'expiring',
     label: 'Скоро истекают',
     description: 'Истекают в ближайшие дни по порогам системы',
@@ -15,6 +20,11 @@ export const CERTIFICATE_PRESETS = [
     id: 'expired',
     label: 'Истёкшие',
     description: 'Срок действия закончился',
+  },
+  {
+    id: 'revoked',
+    label: 'Отозваны',
+    description: 'Отозваны или аннулированы',
   },
   {
     id: 'unassigned',
@@ -49,6 +59,8 @@ export function applyCertificatePreset(
   if (!preset) return data;
 
   switch (preset) {
+    case 'active':
+      return data.filter((cert) => getExpiryUrgency(cert, thresholds) === 'active');
     case 'expiring':
       return data.filter((cert) => {
         const urgency = getExpiryUrgency(cert, thresholds);
@@ -56,6 +68,8 @@ export function applyCertificatePreset(
       });
     case 'expired':
       return data.filter((cert) => getExpiryUrgency(cert, thresholds) === 'expired');
+    case 'revoked':
+      return data.filter((cert) => getExpiryUrgency(cert, thresholds) === 'revoked');
     case 'unassigned':
       return data.filter((cert) => !cert.employeeId);
     case 'no-docs':
@@ -70,8 +84,10 @@ export function countByPreset(
   thresholds: ExpiryThresholds,
 ): Record<CertificatePresetId, number> {
   return {
+    active: applyCertificatePreset(data, 'active', thresholds).length,
     expiring: applyCertificatePreset(data, 'expiring', thresholds).length,
     expired: applyCertificatePreset(data, 'expired', thresholds).length,
+    revoked: applyCertificatePreset(data, 'revoked', thresholds).length,
     unassigned: applyCertificatePreset(data, 'unassigned', thresholds).length,
     'no-docs': applyCertificatePreset(data, 'no-docs', thresholds).length,
   };

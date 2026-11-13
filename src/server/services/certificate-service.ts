@@ -394,6 +394,32 @@ export const certificateService = {
     });
   },
 
+  /**
+   * Массовое аннулирование истёкших сертификатов: все сертификаты со статусом
+   * active/expired, у которых дата окончания раньше cutoff, переводятся в revoked.
+   * Отозванные и ещё действующие не трогаются. Возвращает список аннулированных.
+   */
+  async revokeExpiredBefore(cutoff: Date): Promise<Certificate[]> {
+    const affected = await certificateRepository.findMany({
+      where: {
+        status: { in: ['expired', 'active'] },
+        validTo: { lt: cutoff },
+      },
+      orderBy: { validTo: 'asc' },
+    });
+
+    if (affected.length === 0) {
+      return [];
+    }
+
+    await certificateRepository.updateMany({
+      where: { id: { in: affected.map((certificate) => certificate.id) } },
+      data: { status: 'revoked' },
+    });
+
+    return affected.map((certificate) => ({ ...certificate, status: 'revoked' }));
+  },
+
   async resolveEmployeeForCertificateSubject(
     subjectCN: string,
   ): Promise<ResolveEmployeeResult> {

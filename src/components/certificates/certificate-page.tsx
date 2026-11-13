@@ -13,7 +13,6 @@ import {
   useGetCertificatesAll,
 } from '@/hooks/use-certificate';
 import {
-  computeCertificateStats,
   type CertificateGroupBy,
 } from '@/lib/certificate-table-utils';
 import { DEFAULT_EXPIRY_THRESHOLDS } from '@/lib/certificate-expiry';
@@ -31,7 +30,7 @@ import { CertificateFields } from '@/types/certificate-types';
 
 import { CertificateDetailDialog } from './certificate-detail-dialog';
 import { CertificateExportButton } from './certificate-export-button';
-import { CertificatePresetFilters } from './certificate-preset-filters';
+import { RevokeExpiredCertificatesButton } from './revoke-expired-button';
 import { CertificatesStats } from './certificates-stats';
 import { CertificatesTable } from './certificates-table';
 import { BulkAutoAssignCertificatesButton } from './bulk-auto-assign-button';
@@ -66,7 +65,9 @@ export function CertificatesPage({
   const initialPreset = isCertificatePresetId(presetParam) ? presetParam : null;
 
   const [search, setSearch] = useState('');
-  const initialData = initial.success ? initial.data : [];
+  // При сбое серверной загрузки передаём undefined: пустой массив означал бы
+  // «свежие данные» в react-query, и таблица молча простояла бы пустой.
+  const initialData = initial.success ? initial.data : undefined;
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [groupBy, setGroupBy] = useState<CertificateGroupBy>('none');
   const [activePreset, setActivePreset] = useState<CertificatePresetId | null>(initialPreset);
@@ -104,11 +105,6 @@ export function CertificatesPage({
   const filteredData = useMemo(
     () => applyCertificatePreset(data, activePreset, expiryThresholds),
     [data, activePreset, expiryThresholds],
-  );
-
-  const stats = useMemo(
-    () => computeCertificateStats(filteredData, expiryThresholds),
-    [filteredData, expiryThresholds],
   );
 
   const unassignedCount = useMemo(
@@ -258,20 +254,24 @@ export function CertificatesPage({
               unassignedCount={unassignedCount}
               disabled={isPending || deleting}
             />
+            <RevokeExpiredCertificatesButton
+              certificates={data}
+              disabled={isPending || deleting}
+            />
             <UploadDialog />
           </div>
-
-          {hasAnyCertificates ? (
-            <CertificatePresetFilters
-              activePreset={activePreset}
-              counts={presetCounts}
-              onChange={updatePreset}
-            />
-          ) : null}
         </CardContent>
       </Card>
 
-      {hasAnyCertificates && <CertificatesStats stats={stats} loading={isPending} />}
+      {hasAnyCertificates && (
+        <CertificatesStats
+          total={data.length}
+          presetCounts={presetCounts}
+          activePreset={activePreset}
+          onSelectPreset={updatePreset}
+          loading={isPending}
+        />
+      )}
 
       <Card className="flex min-h-0 w-full flex-1 flex-col gap-0 overflow-hidden border-border/70 py-0 shadow-sm">
         <CardHeader className="shrink-0 border-b border-border/70 px-6 py-3">
