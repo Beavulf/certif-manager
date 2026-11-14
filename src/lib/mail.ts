@@ -121,9 +121,31 @@ function buildEmailHtml(params: SendExpiryEmailParams): string {
                     </tr>
                   </table>
 
-                  <p style="margin:0;color:#6b7280;font-size:13px;">
-                    Пожалуйста, своевременно обратитесь к администратору для продления сертификата.
-                  </p>
+                  <!-- Инструкция для сотрудника -->
+                  <table width="100%" cellpadding="0" cellspacing="0"
+                    style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;margin-bottom:24px;">
+                    <tr>
+                      <td style="padding:18px 20px;">
+                        <p style="margin:0 0 10px;color:#1e3a8a;font-size:14px;font-weight:700;">
+                          Как продлить сертификат
+                        </p>
+                        <p style="margin:0 0 8px;color:#374151;font-size:14px;line-height:1.5;">
+                          Сертификат, срок действия которого истекает, — это ваш
+                          <strong>ключ электронной подписи (ЭЦП)</strong>, записанный на USB-носителе
+                          (флешке).
+                        </p>
+                        <p style="margin:0 0 8px;color:#374151;font-size:14px;line-height:1.5;">
+                          Для продления ключа необходимо <strong>лично приехать в МРТ</strong>
+                          с ключом ЭЦП и паспортом; также потребуется докладная записка.
+                          Обращаться в кабинет <strong>307 или 308</strong>.
+                        </p>
+                        <p style="margin:0;color:#374151;font-size:14px;line-height:1.5;">
+                          Пожалуйста, не откладывайте продление: после истечения срока
+                          подписывать документы будет нельзя.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
                 </td>
               </tr>
 
