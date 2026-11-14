@@ -7,7 +7,7 @@
 #
 # Режим одной команды (без меню, для планировщика/опытных):
 #   powershell -ExecutionPolicy Bypass -File .\manage.ps1 -Action status
-#   Действия: status | start | stop | restart | migrate | diagnostics
+#   Действия: status | start | stop | restart | migrate | autostart | rustfs | diagnostics
 # ============================================================
 
 param(
@@ -102,6 +102,25 @@ function Test-IsAdmin {
 
 function Get-AppService {
     return Get-Service -Name "cert-manager" -ErrorAction SilentlyContinue
+}
+
+function Get-RustFsService {
+    return Get-Service -Name "rustfs" -ErrorAction SilentlyContinue
+}
+
+function Get-RustFsBinary {
+    # Типовые места установки RustFS (лаунчер и ручная установка)
+    $candidates = @(
+        (Join-Path $env:APPDATA "com.dandan.rustfs-launcher\binaries\rustfs.exe"),
+        (Join-Path $env:LOCALAPPDATA "RustFS Launcher\rustfs.exe"),
+        "C:\rustfs\bin\rustfs.exe",
+        "C:\Program Files\RustFS\rustfs.exe",
+        "C:\Program Files (x86)\RustFS\rustfs.exe"
+    )
+    foreach ($p in $candidates) {
+        if ($p -and (Test-Path $p)) { return $p }
+    }
+    return $null
 }
 
 function Get-DbTarget {
@@ -217,10 +236,24 @@ function Show-Status {
     # 4. RustFS
     $minioHost = if ($script:EnvVars["MINIO_ENDPOINT"]) { $script:EnvVars["MINIO_ENDPOINT"] } else { "localhost" }
     $minioPort = if ($script:EnvVars["MINIO_PORT"]) { $script:EnvVars["MINIO_PORT"] } else { "9000" }
+    $rustFsService = Get-RustFsService
     if (Test-TcpPort -TargetHost $minioHost -TargetPort $minioPort) {
-        Write-StatusLine "ok" "Хранилище файлов RustFS" "$minioHost`:$minioPort"
+        if ($rustFsService) {
+            $stateRu = switch ($rustFsService.Status) { "Running" { "работает" } "Stopped" { "остановлена" } default { $rustFsService.Status } }
+            if ($rustFsService.Status -eq "Running") {
+                Write-StatusLine "ok" "Хранилище файлов RustFS" "$minioHost`:$minioPort, служба rustfs: $stateRu, стартует при загрузке сервера"
+            } else {
+                Write-StatusLine "warn" "Хранилище файлов RustFS" "порт занят, но служба rustfs: $stateRu" "Перезапустите приложение (пункт 2) — хранилище запустится вместе с ним"
+            }
+        } else {
+            Write-StatusLine "warn" "Хранилище файлов RustFS" "работает, но запущено окном RustFS — после перезагрузки сервера само не стартует" "Выберите пункт 8 — настроит службу автозапуска хранилища"
+        }
     } else {
-        Write-StatusLine "error" "Хранилище файлов RustFS" "недоступно ($minioHost`:$minioPort)" "Откройте RustFS и нажмите Start Service"
+        if ($rustFsService -and $rustFsService.Status -ne "Running") {
+            Write-StatusLine "error" "Хранилище файлов RustFS" "служба rustfs: остановлена" "Перезапустите приложение (пункт 2) — хранилище запустится вместе с ним"
+        } else {
+            Write-StatusLine "error" "Хранилище файлов RustFS" "недоступно ($minioHost`:$minioPort)" "Настройте автозапуск хранилища (пункт 8) или запустите приложение (пункт 1)"
+        }
     }
 
     # 5. Миграции базы
@@ -308,6 +341,18 @@ function Invoke-StartApp {
     $env:PORT = $script:AppPort
     $env:HOSTNAME = "0.0.0.0"
     if ($script:EnvVars["COOKIE_SECURE"]) { $env:COOKIE_SECURE = $script:EnvVars["COOKIE_SECURE"] }
+
+    # Хранилище нужно поднять раньше приложения
+    $rustFsService = Get-RustFsService
+    if ($rustFsService -and $rustFsService.Status -ne "Running") {
+        Write-Host "Запуск службы rustfs (хранилище файлов)..." -ForegroundColor Cyan
+        try {
+            Start-Service -Name "rustfs" -ErrorAction Stop
+        } catch {
+            Write-Host "[!] Не удалось запустить службу rustfs: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "      Хранилище можно запустить в services.msc, подробности в логах (пункт 6)" -ForegroundColor Yellow
+        }
+    }
 
     $service = Get-AppService
     if ($service) {
@@ -420,6 +465,8 @@ function Show-Logs {
         @("logs\app.err.log", "Ошибки приложения"),
         @("logs\service.log", "Служба NSSM — вывод"),
         @("logs\service.err.log", "Служба NSSM — ошибки"),
+        @("logs\rustfs.log", "Хранилище RustFS — вывод"),
+        @("logs\rustfs.err.log", "Хранилище RustFS — ошибки"),
         @("logs\watchdog.log", "Сторож (падения приложения)")
     )
     $foundAny = $false
@@ -489,6 +536,10 @@ function Invoke-SetupAutostart {
         & $nssm set cert-manager AppEnvironmentExtra "PORT=$script:AppPort" "NODE_ENV=production" "HOSTNAME=0.0.0.0"
         & $nssm set cert-manager Description "Cert Manager — учёт сертификатов сотрудников"
         & $nssm set cert-manager Start SERVICE_AUTO_START
+        # Хранилище должно подняться раньше приложения
+        if (Get-RustFsService) {
+            & $nssm set cert-manager AppDependOn rustfs
+        }
 
         Write-Host "Запуск службы..." -ForegroundColor Cyan
         try {
@@ -530,6 +581,128 @@ function Invoke-SetupAutostart {
     Write-Host "      Попросите ИТ-специалиста установить NSSM (https://nssm.cc, скачать nssm.exe в C:\nssm\) или PM2 (npm install -g pm2)" -ForegroundColor Yellow
 }
 
+function Invoke-SetupRustFs {
+    Read-DotEnv
+    Write-Host "=== Настройка автозапуска хранилища RustFS ===" -ForegroundColor Cyan
+    Write-Host "Хранилище будет работать как служба Windows и стартовать само после перезагрузки." -ForegroundColor White
+    Write-Host ""
+
+    if (-not (Test-IsAdmin)) {
+        Write-Host "[X] Нужны права администратора." -ForegroundColor Red
+        Write-Host "      Закройте это окно, затем: правый клик по manage.bat → «Запуск от имени администратора»" -ForegroundColor Yellow
+        return
+    }
+
+    $nssm = Get-NssmPath
+    if (-not $nssm) {
+        Write-Host "[X] Не найден NSSM — без него нельзя создать службу." -ForegroundColor Red
+        Write-Host "      NSSM уже использовался для приложения (пункт 7). Найдите nssm.exe и добавьте его в PATH, либо положите в C:\nssm\" -ForegroundColor Yellow
+        return
+    }
+
+    $exe = Get-RustFsBinary
+    if ($exe) {
+        Write-Host "Найден RustFS: $exe" -ForegroundColor Cyan
+    } else {
+        Write-Host "RustFS не найден в типовых местах установки." -ForegroundColor Yellow
+        $exe = Read-Host "Укажите полный путь к rustfs.exe (подсказка: он указан в окне RustFS Launcher)"
+        $exe = $exe.Trim('"').Trim()
+        if (-not ($exe -and (Test-Path $exe))) {
+            Write-Host "[X] Файл не найден: $exe" -ForegroundColor Red
+            return
+        }
+    }
+
+    $dataPath = Read-Host "Укажите папку, где RustFS хранит файлы (поле «Data Path» в окне RustFS Launcher)"
+    $dataPath = $dataPath.Trim('"').Trim()
+    if (-not ($dataPath -and (Test-Path $dataPath))) {
+        Write-Host "[X] Папка не найдена: $dataPath" -ForegroundColor Red
+        return
+    }
+
+    $minioPort = if ($script:EnvVars["MINIO_PORT"]) { $script:EnvVars["MINIO_PORT"] } else { "9000" }
+    $minioHost = if ($script:EnvVars["MINIO_ENDPOINT"]) { $script:EnvVars["MINIO_ENDPOINT"] } else { "localhost" }
+    $bindAddr = if ($minioHost -match "^(localhost|127\.0\.0\.1)$") { "127.0.0.1:$minioPort" } else { "0.0.0.0:$minioPort" }
+
+    # Служба уже есть — останавливаем, чтобы обновить настройки
+    $rustFsService = Get-RustFsService
+    if ($rustFsService) {
+        Write-Host "Служба rustfs уже существует — обновляю настройки..." -ForegroundColor Cyan
+        & $nssm stop rustfs 2>$null | Out-Null
+        Start-Sleep -Seconds 2
+    }
+
+    # Порт не должен быть занят окном RustFS (лаунчером) — иначе служба не сможет подняться
+    $conn = $null
+    try { $conn = Get-NetTCPConnection -LocalPort $minioPort -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1 } catch { }
+    if ($conn) {
+        $procName = try { (Get-Process -Id $conn.OwningProcess -ErrorAction Stop).ProcessName } catch { "неизвестно" }
+        if ($procName -match "rustfs") {
+            Write-Host "[X] Сейчас хранилище работает через окно RustFS (лаунчер) — оно займёт порт, и служба не запустится." -ForegroundColor Red
+            Write-Host "      Закройте RustFS: правый клик по значку возле часов → «Exit» / «Выход», затем повторите пункт 8." -ForegroundColor Yellow
+        } else {
+            Write-Host "[X] Порт $minioPort занят другим процессом ($procName, PID $($conn.OwningProcess)) — служба не сможет подняться." -ForegroundColor Red
+        }
+        return
+    }
+
+    $consolePort = "9001"
+    if (Test-TcpPort -TargetHost "127.0.0.1" -TargetPort 9001) { $consolePort = "9002" }
+
+    if (-not $rustFsService) {
+        & $nssm install rustfs $exe
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[X] Не удалось создать службу (nssm install, код $LASTEXITCODE)" -ForegroundColor Red
+            return
+        }
+    }
+
+    $logDir = Join-Path $AppDir "logs"
+    if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+    & $nssm set rustfs AppDirectory (Split-Path $exe -Parent)
+    & $nssm set rustfs AppParameters "server --address `"$bindAddr`" --console-enable true --console-address `"127.0.0.1:$consolePort`" `"$dataPath`""
+    & $nssm set rustfs AppStdout (Join-Path $logDir "rustfs.log")
+    & $nssm set rustfs AppStderr (Join-Path $logDir "rustfs.err.log")
+    & $nssm set rustfs AppStdoutCreationDisposition 4
+    & $nssm set rustfs AppStderrCreationDisposition 4
+    & $nssm set rustfs AppRotateFiles 1
+    & $nssm set rustfs AppRotateOnline 1
+    & $nssm set rustfs AppRotateBytes 10485760
+    $extra = @()
+    if ($script:EnvVars["MINIO_ACCESS_KEY"]) { $extra += "RUSTFS_ACCESS_KEY=$($script:EnvVars["MINIO_ACCESS_KEY"])" }
+    if ($script:EnvVars["MINIO_SECRET_KEY"]) { $extra += "RUSTFS_SECRET_KEY=$($script:EnvVars["MINIO_SECRET_KEY"])" }
+    if ($extra.Count -gt 0) { & $nssm set rustfs AppEnvironmentExtra $extra }
+    & $nssm set rustfs Description "RustFS — хранилище файлов для Cert Manager"
+    & $nssm set rustfs Start SERVICE_AUTO_START
+
+    # Приложение должно стартовать после хранилища
+    if (Get-AppService) {
+        & $nssm set cert-manager AppDependOn rustfs
+    }
+
+    Write-Host "Запуск службы rustfs..." -ForegroundColor Cyan
+    try {
+        Start-Service -Name "rustfs" -ErrorAction Stop
+    } catch {
+        Write-Host "[X] Служба создана, но не запустилась: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "      Смотрите logs\rustfs.err.log (пункт 6)" -ForegroundColor Yellow
+        return
+    }
+
+    $ready = $false
+    for ($i = 1; $i -le 30; $i++) {
+        if (Test-TcpPort -TargetHost "127.0.0.1" -TargetPort $minioPort) { $ready = $true; break }
+        Start-Sleep -Seconds 1
+    }
+    if ($ready) {
+        Write-Host "[+] Хранилище работает как служба. Автозапуск при загрузке сервера включён." -ForegroundColor Green
+        Write-Host "      Окно RustFS (лаунчер) больше не нужно — держите его закрытым, иначе порт будет занят." -ForegroundColor DarkCyan
+        Write-Host "      Консоль хранилища: http://127.0.0.1:$consolePort" -ForegroundColor DarkCyan
+    } else {
+        Write-Host "[!] Служба запущена, но порт $minioPort пока не отвечает — подождите минуту и обновите состояние (пункт 5)" -ForegroundColor Yellow
+    }
+}
+
 # ───────────────────────── entry ─────────────────────────
 
 try {
@@ -543,10 +716,11 @@ try {
             "restart"     { Invoke-RestartApp }
             "migrate"     { Invoke-Migrate }
             "autostart"   { Invoke-SetupAutostart }
+            "rustfs"      { Invoke-SetupRustFs }
             "diagnostics" { Show-Status; Show-Logs }
             default {
                 Write-Host "Неизвестное действие: $Action" -ForegroundColor Red
-                Write-Host "Доступны: status | start | stop | restart | migrate | autostart | diagnostics"
+                Write-Host "Доступны: status | start | stop | restart | migrate | autostart | rustfs | diagnostics"
                 exit 1
             }
         }
@@ -572,6 +746,7 @@ try {
         Write-Host "  5 — Обновить состояние (проверить заново)"
         Write-Host "  6 — Последние события (логи)"
         Write-Host "  7 — Настроить автозапуск при загрузке сервера (служба)"
+        Write-Host "  8 — Настроить автозапуск хранилища RustFS (служба)"
         Write-Host "  0 — Выход"
         Write-Host ""
         $choice = Read-Host "Введите номер и нажмите Enter"
@@ -584,6 +759,7 @@ try {
             "5" { }
             "6" { Show-Logs }
             "7" { Invoke-SetupAutostart }
+            "8" { Invoke-SetupRustFs }
             "0" { exit 0 }
             default { Write-Host "Нет такого пункта: $choice" -ForegroundColor Yellow }
         }
